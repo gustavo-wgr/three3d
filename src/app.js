@@ -80,7 +80,7 @@ class App {
 	 */
 	loadDemoScene() {
 		this.showSpinner();
-		this.view('./glbscene.glb', '', new Map());
+		this.view('/glbscene.glb', '', new Map());
 	}
 
 	/**

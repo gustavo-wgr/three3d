@@ -7,6 +7,11 @@
             "dest": "/assets/$1"
         },
         {
+            "src": "/(.*\\.glb)$",
+            "headers": { "cache-control": "max-age=604800, public" },
+            "dest": "/public/$1"
+        },
+        {
             "src": "/(.*)",
             "dest": "/public/$1"
         }
