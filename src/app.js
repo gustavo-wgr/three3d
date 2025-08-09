@@ -35,9 +35,11 @@ class App {
 		this.spinnerEl = el.querySelector('.spinner');
 		this.dropEl = el.querySelector('.dropzone');
 		this.inputEl = el.querySelector('#file-input');
+		this.demoBtn = el.querySelector('#load-demo');
 		this.validator = new Validator(el);
 
 		this.createDropzone();
+		this.setupDemoButton();
 		this.hideSpinner();
 
 		const options = this.options;
@@ -60,6 +62,25 @@ class App {
 		dropCtrl.on('drop', ({ files }) => this.load(files));
 		dropCtrl.on('dropstart', () => this.showSpinner());
 		dropCtrl.on('droperror', () => this.hideSpinner());
+	}
+
+	/**
+	 * Sets up the demo button to load the local glbscene.glb file.
+	 */
+	setupDemoButton() {
+		if (this.demoBtn) {
+			this.demoBtn.addEventListener('click', () => {
+				this.loadDemoScene();
+			});
+		}
+	}
+
+	/**
+	 * Loads the local glbscene.glb file.
+	 */
+	loadDemoScene() {
+		this.showSpinner();
+		this.view('./glbscene.glb', '', new Map());
 	}
 
 	/**

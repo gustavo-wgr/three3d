@@ -200,6 +200,44 @@ footer .separator {
   margin-right: 0.25em;
 }
 
+/******************************************************************************
+ * Demo Button
+ */
+
+.demo-btn {
+  margin-top: 1em;
+}
+
+.demo-btn button {
+  color: #808080;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  transition: ease 0.2s background;
+  font-size: 1rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-block;
+  overflow: hidden;
+  padding: 0.625rem 1.25rem;
+  font-family: 'Raleway', sans-serif;
+}
+
+.demo-btn button:hover {
+  background: #252525;
+}
+
+.demo-btn svg {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  fill: currentColor;
+  margin-top: -0.25em;
+  margin-right: 0.25em;
+}
+
 
 /******************************************************************************
  * Validation report
