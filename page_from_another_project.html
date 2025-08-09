@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FuturePast: From Photo To 3D</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+      #info {
+        position: absolute;
+        top: 10px;
+        width: 100%;
+        text-align: center;
+        color: white;
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.167.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.167.0/examples/jsm/",
+          "tween": "https://unpkg.com/@tweenjs/tween.js@23.1.3/dist/tween.esm.js"
+        }
+      }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <div id="info">Future past</div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+      import { XRButton } from "three/addons/webxr/XRButton.js";
+      import { XRControllerModelFactory } from "three/addons/webxr/XRControllerModelFactory.js";
+      import { XRHandModelFactory } from "three/addons/webxr/XRHandModelFactory.js";
+      import { OculusHandModel } from "three/addons/webxr/OculusHandModel.js";
+      import * as TWEEN from "tween";
+
+      let hand1, hand2;
+      let controller1, controller2;
+      let controllerGrip1, controllerGrip2;
+      let backgroundSphere;
+      let isBackgroundVisible = false; // Start with background visible
+      let handMaterialChanged = false;
+      let isInXRSession = false;
+      // Scene setup
+      const scene = new THREE.Scene();
+      // Set the scene background to always be transparent
+      scene.background = null;
+
+      // Camera setup
+      const camera = new THREE.PerspectiveCamera(
+        55,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 1.6, 3);
+
+      // Renderer setup
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setClearColor(0x000000, 1); // Always transparent
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Create the background sphere (10 meters radius)
+      function createBackgroundSphere() {
+        const geometry = new THREE.SphereGeometry(50, 8, 8);
+        // Material with black color, side set to BackSide to render inside of sphere
+        const material = new THREE.MeshBasicMaterial({
+          color: 0x000000,
+          side: THREE.BackSide,
+          transparent: true,
+          opacity: 1.0,
+        });
+        backgroundSphere = new THREE.Mesh(geometry, material);
+        // Center the sphere at camera position
+        backgroundSphere.position.set(0, 1.6, 0);
+        scene.add(backgroundSphere);
+      }
+
+      // Create the background sphere
+      createBackgroundSphere();
+
+      // Function to toggle background sphere visibility
+      function toggleBackground() {
+        isBackgroundVisible = !isBackgroundVisible;
+
+        if (isBackgroundVisible) {
+          backgroundSphere.material.opacity = 1.0;
+          console.log("Background sphere visible");
+        } else {
+          backgroundSphere.material.opacity = 0.0;
+          console.log("Background sphere hidden");
+        }
+
+        // No longer trigger the appearance animation from here
+      }
+
+      // Add XR button
+      const sessionInit = {
+        requiredFeatures: ["hand-tracking"],
+      };
+
+      document.body.appendChild(XRButton.createButton(renderer, sessionInit));
+
+      // Add these after renderer.xr.enabled = true; but before animate()
+      renderer.xr.addEventListener("sessionstart", () => {
+        isInXRSession = true;
+        // Always hide background in XR mode
+        backgroundSphere.material.opacity = 0.0;
+        console.log("XR session started - background hidden");
+      });
+
+      renderer.xr.addEventListener("sessionend", () => {
+        isInXRSession = false;
+        // Restore background to its previous state when exiting XR
+        backgroundSphere.material.opacity = isBackgroundVisible ? 1.0 : 0.0;
+        console.log("XR session ended - background restored to previous state");
+      });
+
+      // // controllers
+      // controller1 = renderer.xr.getController(0);
+      // scene.add(controller1);
+
+      // controller2 = renderer.xr.getController(1);
+      // scene.add(controller2);
+
+      // const controllerModelFactory = new XRControllerModelFactory();
+
+      // // Hand 1
+      // controllerGrip1 = renderer.xr.getControllerGrip(0);
+      // controllerGrip1.add(
+      //   controllerModelFactory.createControllerModel(controllerGrip1)
+      // );
+      // scene.add(controllerGrip1);
+
+      // function onPinchStartLeft(event) {}
+
+      // hand1 = renderer.xr.getHand(0);
+      // // Add a debounce mechanism for background toggle
+      // let lastToggleTime = 0;
+      // const TOGGLE_COOLDOWN = 1000; // 1 second cooldown between toggles
+
+      // hand1.addEventListener("pinchstart", () => {
+      //   const currentTime = Date.now();
+      //   // Only allow toggle if enough time has passed since last toggle
+      //   if (currentTime - lastToggleTime > TOGGLE_COOLDOWN) {
+      //     toggleBackground();
+      //     lastToggleTime = currentTime;
+      //     console.log("Background toggled with cooldown");
+      //   } else {
+      //     console.log("Toggle ignored - cooldown active");
+      //   }
+      // });
+
+      // hand1.addEventListener("pinchend", () => {
+      //   // Don't toggle on pinch end
+      // });
+      // const handModel1 = new OculusHandModel(hand1);
+      // hand1.add(handModel1);
+
+      // function changeHandMaterial() {
+      //   if (
+      //     // renderer.xr.getSession() &&
+      //     hand1.children[0] &&
+      //     hand1.children[0].children &&
+      //     hand1.children[0].children.length > 0 &&
+      //     hand2.children[0] &&
+      //     hand2.children[0].children &&
+      //     hand2.children[0].children.length > 0 &&
+      //     !handMaterialChanged
+      //   ) {
+      //     handMaterialChanged = true;
+      //     let materialHAND = new THREE.MeshBasicMaterial({
+      //       transparent: true,
+      //       opacity: 0.35,
+      //     });
+      //     hand1.children[0].children[0].children[0].material = materialHAND;
+      //   }
+      // }
+      // scene.add(hand1);
+      // console.log(hand1);
+      // // hand1.children[0].motionController.handModel.xrInputSource.handedness
+      // // hand1.children[0].xrInputSource.handedness;
+
+      // // Hand 2
+      // controllerGrip2 = renderer.xr.getControllerGrip(1);
+      // controllerGrip2.add(
+      //   controllerModelFactory.createControllerModel(controllerGrip2)
+      // );
+      // scene.add(controllerGrip2);
+
+      // hand2 = renderer.xr.getHand(1);
+      // const handModel2 = new OculusHandModel(hand2);
+      // hand2.add(handModel2);
+      // scene.add(hand2);
+
+      // Controls
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 1.0, 0);
+      controls.update();
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+      directionalLight.position.set(1, 2, 3);
+      scene.add(directionalLight);
+
+      // Store original geometry data
+      let originalGeometry = null;
+      let pointCloud = null;
+      let pointCloudMaterial = null;
+      let clock = new THREE.Clock();
+
+      // Animation parameters
+      let isAnimatingAppearance = false;
+      let appearanceAnimationStartTime = 0;
+
+      // Add array of GLB files
+      const glbFiles = [
+        "glbscene8.glb",
+        "sev.glb",
+        "evening.glb",
+        "glbscene6.glb",
+        "glbscene.glb",
+      ];
+
+      // Current GLB index
+      let currentGlbIndex = 0;
+
+      // GUI setup
+      const gui = new dat.GUI();
+      const params = {
+        pointSize: 0.006,
+        subsampleRate: 0.2,
+        evaporationAmount: 0.01, // 1% of points will evaporate
+        evaporationSpeed: 0.04,
+        maxHeight: 1.0, // Maximum height for evaporation
+        evaporationEnabled: true,
+        appearanceAnimationDuration: 5.0, // Duration in seconds
+        appearanceAnimationScale: 1.0, // How far back points come from
+        appearanceDelay: 8.0, // Delay before animation starts in seconds
+        currentGlb: glbFiles[0], // Current GLB file name
+        toggleBackground: function () {
+          toggleBackground();
+        },
+        triggerAppearanceAnimation: function () {
+          triggerAppearanceAnimation(0); // Immediate animation
+        },
+        triggerDelayedAppearance: function () {
+          triggerAppearanceAnimation(params.appearanceDelay); // Delayed animation
+        },
+        switchToNextGlb: function () {
+          // Increment the index and wrap around if needed
+          currentGlbIndex = (currentGlbIndex + 1) % glbFiles.length;
+          params.currentGlb = glbFiles[currentGlbIndex];
+
+          // Load the new GLB
+          loadGlbModel(params.currentGlb);
+        },
+      };
+
+      gui.add(params, "pointSize", 0.001, 0.02).onChange(function (value) {
+        if (pointCloudMaterial) {
+          pointCloudMaterial.uniforms.pointSize.value = value;
+        }
+      });
+
+      gui
+        .add(params, "subsampleRate", 0.01, 1.0, 0.01)
+        .name("Sample Rate")
+        .onChange(function (value) {
+          if (originalGeometry) {
+            updatePointCloudSampling(value);
+          }
+        });
+
+      gui
+        .add(params, "evaporationAmount", 0.001, 0.05, 0.001)
+        .name("Evaporation %")
+        .onChange(function (value) {
+          if (originalGeometry) {
+            updatePointCloudSampling(params.subsampleRate);
+          }
+        });
+
+      gui
+        .add(params, "evaporationSpeed", 0.02, 1.0, 0.01)
+        .name("Evap. Speed")
+        .onChange(function (value) {
+          if (pointCloudMaterial) {
+            pointCloudMaterial.uniforms.evaporationSpeed.value = value;
+          }
+        });
+
+      gui
+        .add(params, "maxHeight", 0.5, 5.0, 0.1)
+        .name("Max Height")
+        .onChange(function (value) {
+          if (pointCloudMaterial) {
+            pointCloudMaterial.uniforms.maxHeight.value = value;
+          }
+        });
+
+      gui
+        .add(params, "evaporationEnabled")
+        .name("Enable Effect")
+        .onChange(function (value) {
+          if (pointCloudMaterial) {
+            pointCloudMaterial.uniforms.evaporationEnabled.value = value
+              ? 1.0
+              : 0.0;
+          }
+        });
+
+      gui
+        .add(params, "appearanceAnimationDuration", 1.0, 10.0, 0.5)
+        .name("Appear Duration")
+        .onChange(function (value) {
+          console.log("Animation duration updated:", value);
+        });
+
+      gui
+        .add(params, "appearanceAnimationScale", 1.0, 10.0, 0.5)
+        .name("Appear Scale");
+
+      gui
+        .add(params, "appearanceDelay", 0.0, 10.0, 0.5)
+        .name("Appear Delay (s)");
+
+      // Add GLB switcher folder
+      const glbFolder = gui.addFolder("GLB Options");
+
+      // Add read-only display of current GLB
+      const glbController = glbFolder
+        .add(params, "currentGlb")
+        .name("Current GLB")
+        .listen();
+      glbController.__input.readOnly = true;
+
+      // Add button to switch to next GLB
+      glbFolder.add(params, "switchToNextGlb").name("Switch to Next GLB");
+
+      // Expand the folder by default
+      glbFolder.open();
+
+      gui.add(params, "toggleBackground").name("Toggle Background");
+
+      gui
+        .add(params, "triggerAppearanceAnimation")
+        .name("Make Points Appear Now");
+
+      gui.add(params, "triggerDelayedAppearance").name("Appear with Delay");
+
+      // Function to trigger the appearance animation with optional delay
+      function triggerAppearanceAnimation(delaySeconds = 0) {
+        if (pointCloudMaterial) {
+          // Reset animation progress immediately
+          pointCloudMaterial.uniforms.appearanceProgress.value = 0.0;
+
+          console.log(
+            `Appearance animation scheduled with ${delaySeconds}s delay`
+          );
+
+          // Initially hide points if we're delaying the animation
+          if (delaySeconds > 0) {
+            pointCloudMaterial.uniforms.globalOpacity.value = 0.0;
+          }
+
+          // Use TWEEN for smooth animation with delay
+          new TWEEN.Tween({ progress: 0 })
+            .to({ progress: 1 }, params.appearanceAnimationDuration * 1000)
+            .easing(TWEEN.Easing.Cubic.Out)
+            .delay(delaySeconds * 1000) // Add delay in milliseconds
+            .onStart(function () {
+              isAnimatingAppearance = true;
+              appearanceAnimationStartTime = clock.getElapsedTime();
+              console.log("Appearance animation started");
+            })
+            .onUpdate(function (obj) {
+              if (pointCloudMaterial) {
+                pointCloudMaterial.uniforms.appearanceProgress.value =
+                  obj.progress;
+                // Gradually restore opacity
+                pointCloudMaterial.uniforms.globalOpacity.value = 1.0;
+              }
+            })
+            .onComplete(function () {
+              isAnimatingAppearance = false;
+              if (pointCloudMaterial) {
+                pointCloudMaterial.uniforms.globalOpacity.value = 1.0;
+                pointCloudMaterial.uniforms.appearanceProgress.value = 1.0;
+              }
+              console.log("Appearance animation completed");
+            })
+            .start();
+        }
+      }
+
+      // Custom shader for point cloud with one-way evaporation effect and appearance animation
+      const vertexShader = `
+         // Vertex Shader with improved appearance animation
+uniform float pointSize;
+uniform float time;
+uniform float evaporationSpeed;
+uniform float evaporationEnabled;
+uniform float maxHeight;
+uniform float appearanceProgress;
+uniform float appearanceScale;
+uniform float globalOpacity;
+
+attribute float evaporationFactor;
+attribute float randomDelay;
+
+varying vec3 vColor;
+varying float vOpacity;
+
+// Improved easing functions for more organic feel
+float easeOutCubic(float t) {
+    return 1.0 - pow(1.0 - t, 3.0);
+}
+
+float easeOutBack(float t) {
+    float c1 = 1.70158;
+    float c3 = c1 + 1.0;
+    return 1.0 + c3 * pow(t - 1.0, 3.0) + c1 * pow(t - 1.0, 2.0);
+}
+
+// Simple hash function for more randomness
+float hash(float n) {
+    return fract(sin(n) * 43758.5453123);
+}
+
+void main() {
+    // Pass the color to the fragment shader
+    vColor = color.rgb;
+    vOpacity = globalOpacity;
+
+    // Start with regular position
+    vec3 pos = position;
+    float sizeCoef = 1.0;
+
+    // Only do appearance calculations if we're in animation phase
+    if (appearanceProgress < 1.0) {
+        // Create multiple randomization factors for more chaotic appearance
+        float randomSpeed = hash(randomDelay * 123.456) * 0.6 + 0.7; // 0.7-1.3 speed multiplier
+        float randomPath = hash(randomDelay * 789.123); // 0-1 for path variation
+        float randomEase = hash(randomDelay * 345.678); // 0-1 for easing variation
+        
+        // Height factor with adjusted range, but less dominant than before
+        float heightFactor = clamp((position.y + 1.0) / 2.0, 0.0, 1.0);
+        
+        // Mix of height (50%) and random (50%) for more chaotic timing
+        float delayFactor = heightFactor * 0.5 + randomDelay * 0.5;
+        
+        // Calculate point appearance timing with randomized speed
+        float pointAppearanceThreshold = appearanceProgress * (1.5 + randomSpeed * 0.5);
+        float pointProgress = (pointAppearanceThreshold - delayFactor) / (0.8 + randomSpeed * 0.3);
+        pointProgress = clamp(pointProgress, 0.0, 1.0);
+        
+        // Apply varied easing based on random factor
+        if (pointProgress > 0.01 && pointProgress < 0.99) {
+            if (randomEase < 0.6) {
+                pointProgress = easeOutCubic(pointProgress); // 60% of points
+            } else {
+                pointProgress = easeOutBack(pointProgress); // 40% of points - slight overshoot
+            }
+        }
+        
+        // Start with zero opacity
+        vOpacity = 0.0;
+        
+        // Position and opacity animation
+        if (pointProgress > 0.0) {
+            // Opacity animation with slight delay to avoid popping
+            vOpacity = globalOpacity * pointProgress;
+            
+            // Randomized starting offsets for more chaotic paths
+            float xOffset = (randomPath - 0.5) * 0.4; // Wider X variation (-0.2 to 0.2)
+            float yOffset = -0.5 - randomDelay * 0.5; // More variation in Y start
+            
+            // Z offset with height influence and randomness
+            float zOffset = appearanceScale * (0.8 + randomPath * 0.4); // 0.8-1.2× scale
+            // Higher points start slightly further back with more variation
+            zOffset += heightFactor * (0.5 + randomPath * 0.3);
+            
+            // Add slight spiral/curved motion based on randomPath
+            float angle = randomPath * 6.28; // 0-2π
+            float spiral = 0.15 * randomPath * (1.0 - pointProgress);
+            xOffset += cos(angle) * spiral;
+            zOffset += sin(angle) * spiral;
+            
+            vec3 startOffset = vec3(xOffset, yOffset, zOffset);
+            
+            // Non-linear path: more curved trajectory using mix with a bias
+            float pathBias = pow(pointProgress, 0.7 + randomPath * 0.6); // Varied path curvature
+            pos = mix(position + startOffset, position, pathBias);
+            
+            // Size animation with slight overshoot for some points
+            if (randomEase > 0.7) {
+                // 30% of points have size overshoot animation
+                float sizeProgress = min(pointProgress * 1.2, 1.0);
+                float overshoot = 1.0 + 0.3 * (1.0 - abs(2.0 * sizeProgress - 1.8));
+                sizeCoef = mix(0.3, overshoot, sizeProgress);
+            } else {
+                // Regular size animation for most points
+                sizeCoef = mix(0.3, 1.0, pointProgress);
+            }
+        }
+    }
+
+    // Evaporation effect (unchanged)
+    if (evaporationEnabled > 0.5 && evaporationFactor > 0.01) {
+        sizeCoef = 1.5;
+        float cycle = fract(time * evaporationFactor * evaporationSpeed);
+        pos.y += cycle * maxHeight;
+        vOpacity = globalOpacity * (1.0 - cycle);
+    }
+
+    // Calculate point size with attenuation
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+    gl_PointSize = pointSize * sizeCoef * (1000.0 / -mvPosition.z);
+    gl_Position = projectionMatrix * mvPosition;
+}
+      `;
+
+      const fragmentShader = `
+          varying vec3 vColor;
+          varying float vOpacity;
+
+          void main() {
+              // Create a circular point
+              float r = length(gl_PointCoord - vec2(0.5, 0.5));
+              if (r > 0.5) discard;
+
+              // Apply the color with opacity
+              gl_FragColor = vec4(vColor, vOpacity);
+          }
+      `;
+
+      // Function to subsample the point cloud and add evaporation effect
+      function updatePointCloudSampling(rate) {
+        if (!originalGeometry) return;
+
+        // Remove the old point cloud
+        if (pointCloud) {
+          scene.remove(pointCloud);
+        }
+
+        // Create a new subsampled geometry
+        const newGeometry = new THREE.BufferGeometry();
+
+        // Get the original attributes
+        const originalPositions = originalGeometry.attributes.position;
+        const originalColors = originalGeometry.attributes.color;
+
+        // Calculate how many points to keep
+        const originalCount = originalPositions.count;
+        const targetCount = Math.max(1, Math.floor(originalCount * rate));
+
+        // Create arrays for the new attributes
+        const newPositions = new Float32Array(targetCount * 3);
+        const newColors = new Float32Array(targetCount * 3);
+        const evaporationFactors = new Float32Array(targetCount);
+        const randomDelays = new Float32Array(targetCount);
+
+        // Calculate stride for even sampling
+        const stride = originalCount / targetCount;
+
+        // Calculate evaporation count
+        const evaporationCount = Math.floor(
+          targetCount * params.evaporationAmount
+        );
+        console.log(
+          `Setting ${evaporationCount} points to evaporate out of ${targetCount} total`
+        );
+
+        // Random indices for evaporating points
+        const evaporatingIndices = new Set();
+        while (evaporatingIndices.size < evaporationCount) {
+          evaporatingIndices.add(Math.floor(Math.random() * targetCount));
+        }
+
+        // Sample points using stride
+        for (let i = 0; i < targetCount; i++) {
+          const sourceIndex = Math.min(
+            originalCount - 1,
+            Math.floor(i * stride)
+          );
+
+          // Copy position
+          newPositions[i * 3] = originalPositions.getX(sourceIndex);
+          newPositions[i * 3 + 1] = originalPositions.getY(sourceIndex);
+          newPositions[i * 3 + 2] = originalPositions.getZ(sourceIndex);
+
+          // Copy color
+          if (originalColors) {
+            newColors[i * 3] = originalColors.getX(sourceIndex);
+            newColors[i * 3 + 1] = originalColors.getY(sourceIndex);
+            newColors[i * 3 + 2] = originalColors.getZ(sourceIndex);
+          } else {
+            // Default white
+            newColors[i * 3] = 1.0;
+            newColors[i * 3 + 1] = 1.0;
+            newColors[i * 3 + 2] = 1.0;
+          }
+
+          // Set evaporation factor
+          if (evaporatingIndices.has(i)) {
+            evaporationFactors[i] = 0.2 + Math.random() * 0.8; // Random speed factor
+          } else {
+            evaporationFactors[i] = 0.0; // No evaporation
+          }
+
+          // Set random delay for appearance animation
+          randomDelays[i] = Math.random();
+        }
+
+        // Set geometry attributes
+        newGeometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(newPositions, 3)
+        );
+
+        newGeometry.setAttribute(
+          "color",
+          new THREE.BufferAttribute(newColors, 3)
+        );
+
+        newGeometry.setAttribute(
+          "evaporationFactor",
+          new THREE.BufferAttribute(evaporationFactors, 1)
+        );
+
+        newGeometry.setAttribute(
+          "randomDelay",
+          new THREE.BufferAttribute(randomDelays, 1)
+        );
+
+        // Create shader material
+        pointCloudMaterial = new THREE.ShaderMaterial({
+          uniforms: {
+            pointSize: { value: params.pointSize },
+            time: { value: 0.0 },
+            evaporationSpeed: { value: params.evaporationSpeed },
+            maxHeight: { value: params.maxHeight },
+            evaporationEnabled: {
+              value: params.evaporationEnabled ? 1.0 : 0.0,
+            },
+            appearanceProgress: { value: 1.0 }, // Start fully visible
+            appearanceScale: { value: params.appearanceAnimationScale },
+            globalOpacity: { value: 1.0 }, // Global opacity control
+          },
+          vertexShader: vertexShader,
+          fragmentShader: fragmentShader,
+          transparent: true,
+          vertexColors: true,
+          //depthWrite: false,
+        });
+
+        // Create point cloud
+        pointCloud = new THREE.Points(newGeometry, pointCloudMaterial);
+        pointCloud.position.set(0, 1.0, 0);
+        pointCloud.scale.set(1.0, 1.0, 1.0);
+        pointCloud.rotation.set(0, 0, 0);
+        scene.add(pointCloud);
+
+        console.log(`Created point cloud with ${targetCount} points`);
+
+        // Trigger the appearance animation automatically on creation
+        triggerAppearanceAnimation();
+      }
+
+      // Function to load a GLB model
+      function loadGlbModel(glbUrl) {
+        console.log(`Loading GLB model: ${glbUrl}`);
+        document.getElementById("info").textContent = `Loading ${glbUrl}...`;
+
+        // Remove existing point cloud
+        if (pointCloud) {
+          scene.remove(pointCloud);
+          pointCloud = null;
+        }
+
+        // Reset original geometry
+        originalGeometry = null;
+
+        const loader = new GLTFLoader();
+
+        loader.load(
+          glbUrl,
+          function (gltf) {
+            // Extract the point cloud geometry
+            const model = gltf.scene;
+            let foundPointCloud = false;
+
+            model.traverse((child) => {
+              if (child.isPoints || child.isMesh) {
+                foundPointCloud = true;
+                console.log(`Found point cloud in ${glbUrl}`);
+
+                const geometry = child.geometry;
+                originalGeometry = geometry.clone();
+
+                // Handle color attributes
+                if (geometry.attributes.color) {
+                  console.log("Color attribute found");
+                } else if (geometry.attributes.COLOR_0) {
+                  console.log("COLOR_0 attribute found, mapping to color");
+                  geometry.setAttribute("color", geometry.attributes.COLOR_0);
+                  originalGeometry.setAttribute(
+                    "color",
+                    geometry.attributes.COLOR_0.clone()
+                  );
+                } else {
+                  console.log(
+                    "No color attribute found, creating default colors"
+                  );
+
+                  // Create white colors
+                  const count = geometry.attributes.position.count;
+                  const colors = new Float32Array(count * 3);
+                  for (let i = 0; i < count * 3; i++) {
+                    colors[i] = 1.0;
+                  }
+
+                  geometry.setAttribute(
+                    "color",
+                    new THREE.BufferAttribute(colors, 3)
+                  );
+                  originalGeometry.setAttribute(
+                    "color",
+                    new THREE.BufferAttribute(colors.slice(), 3)
+                  );
+                }
+
+                // Create the subsampled point cloud with evaporation effect
+                updatePointCloudSampling(params.subsampleRate);
+                document.getElementById(
+                  "info"
+                ).textContent = `Loaded: ${glbUrl}`;
+              }
+            });
+
+            if (!foundPointCloud) {
+              console.warn(`No point cloud found in ${glbUrl}!`);
+              createDemoPointCloud();
+              document.getElementById(
+                "info"
+              ).textContent = `No points in ${glbUrl}, using demo`;
+            }
+          },
+          function (xhr) {
+            const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+            console.log(`${percentComplete}% loaded`);
+            document.getElementById(
+              "info"
+            ).textContent = `Loading ${glbUrl}: ${percentComplete}%`;
+          },
+          function (error) {
+            console.error(`Error loading ${glbUrl}:`, error);
+            createDemoPointCloud();
+            document.getElementById(
+              "info"
+            ).textContent = `Failed to load ${glbUrl}, using demo`;
+          }
+        );
+      }
+
+      // Create a demo point cloud if GLB fails or has no points
+      function createDemoPointCloud() {
+        console.log("Creating demo point cloud");
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+        const colors = [];
+
+        // Create a sphere of points
+        for (let i = 0; i < 10000; i++) {
+          const radius = 2;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+
+          const x = radius * Math.sin(phi) * Math.cos(theta);
+          const y = radius * Math.sin(phi) * Math.sin(theta);
+          const z = radius * Math.cos(phi);
+
+          vertices.push(x, y, z);
+
+          // Rainbow colors
+          colors.push(
+            Math.sin(theta) * 0.5 + 0.5,
+            Math.cos(phi) * 0.5 + 0.5,
+            Math.sin(phi + theta) * 0.5 + 0.5
+          );
+        }
+
+        geometry.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(vertices, 3)
+        );
+        geometry.setAttribute(
+          "color",
+          new THREE.Float32BufferAttribute(colors, 3)
+        );
+
+        originalGeometry = geometry.clone();
+
+        // Apply subsampling and evaporation
+        updatePointCloudSampling(params.subsampleRate);
+      }
+
+      // Update background sphere position to follow the camera in XR
+      function updateBackgroundSpherePosition() {
+        if (renderer.xr.isPresenting) {
+          // Get the camera position in world space
+          const xrCamera = renderer.xr.getCamera();
+          backgroundSphere.position.copy(xrCamera.position);
+        } else {
+          // In non-XR mode, just follow the main camera
+          backgroundSphere.position.copy(camera.position);
+        }
+      }
+
+      // Window resize handler
+      window.addEventListener("resize", onWindowResize, false);
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      // Animation loop
+      function animate() {
+        renderer.setAnimationLoop(render);
+      }
+
+      function render() {
+        // changeHandMaterial();
+        // Update time uniform for evaporation effect
+        if (pointCloudMaterial) {
+          pointCloudMaterial.uniforms.time.value = clock.getElapsedTime();
+
+          // Update appearance animation
+          if (isAnimatingAppearance) {
+            const elapsed =
+              clock.getElapsedTime() - appearanceAnimationStartTime;
+            const progress = Math.min(
+              elapsed / params.appearanceAnimationDuration,
+              1.0
+            );
+            pointCloudMaterial.uniforms.appearanceProgress.value = progress;
+
+            if (progress >= 1.0) {
+              isAnimatingAppearance = false;
+            }
+          }
+
+          // Update appearance scale from GUI
+          pointCloudMaterial.uniforms.appearanceScale.value =
+            params.appearanceAnimationScale;
+        }
+
+        // Update TWEEN animations
+        TWEEN.update();
+
+        // Update background sphere position to follow the camera
+        updateBackgroundSpherePosition();
+
+        renderer.render(scene, camera);
+      }
+
+      // Initial load of the first GLB model
+      loadGlbModel(glbFiles[currentGlbIndex]);
+
+      animate();
+    </script>
+  </body>
+</html>
