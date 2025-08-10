@@ -8,5 +8,10 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['tween']
+  },
+  resolve: {
+    alias: {
+      'tween': 'https://unpkg.com/@tweenjs/tween.js@23.1.3/dist/tween.esm.js'
+    }
   }
 })

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>3D Scene Viewer - GLB Scene</title>
@@ -21,8 +21,8 @@
         font-family: Arial, sans-serif;
       }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <script type="importmap">
       {
         "imports": {
@@ -118,12 +118,74 @@
 
       document.body.appendChild(XRButton.createButton(renderer, sessionInit));
 
+      // VR Controller setup
+      controller1 = renderer.xr.getController(0);
+      scene.add(controller1);
+
+      controller2 = renderer.xr.getController(1);
+      scene.add(controller2);
+
+      const controllerModelFactory = new XRControllerModelFactory();
+
+      // Controller grips
+      controllerGrip1 = renderer.xr.getControllerGrip(0);
+      controllerGrip1.add(
+        controllerModelFactory.createControllerModel(controllerGrip1)
+      );
+      scene.add(controllerGrip1);
+
+      controllerGrip2 = renderer.xr.getControllerGrip(1);
+      controllerGrip2.add(
+        controllerModelFactory.createControllerModel(controllerGrip2)
+      );
+      scene.add(controllerGrip2);
+
+      // VR Model position control variables
+      let modelY = 2.1;
+      let modelZ = -3;
+      const positionStep = 0.1; // How much to move per button press
+
+      // Function to update model position
+      function updateModelPosition() {
+        if (pointCloud) {
+          pointCloud.position.set(0, modelY, modelZ);
+        }
+      }
+
+      // Controller button event handlers
+      controller1.addEventListener('selectstart', () => {
+        if (isInXRSession) {
+          // Controller 1: Y position controls
+          modelY -= positionStep;
+          updateModelPosition();
+          console.log(`Model Y position: ${modelY.toFixed(1)}`);
+        }
+      });
+
+      controller1.addEventListener('selectend', () => {
+        // Optional: Add any end-of-press behavior
+      });
+
+      controller2.addEventListener('selectstart', () => {
+        if (isInXRSession) {
+          // Controller 2: Z position controls
+          modelZ += positionStep; // Move closer (less negative)
+          updateModelPosition();
+          console.log(`Model Z position: ${modelZ.toFixed(1)}`);
+        }
+      });
+
+      controller2.addEventListener('selectend', () => {
+        // Optional: Add any end-of-press behavior
+      });
+
       // Add these after renderer.xr.enabled = true; but before animate()
       renderer.xr.addEventListener("sessionstart", () => {
         isInXRSession = true;
         // Always hide background in XR mode
         backgroundSphere.material.opacity = 0.0;
         console.log("XR session started - background hidden");
+        console.log("VR Controls: Left controller = Y position, Right controller = Z position");
       });
 
       renderer.xr.addEventListener("sessionend", () => {
@@ -596,8 +658,8 @@ void main() {
 
         // Create point cloud
         pointCloud = new THREE.Points(newGeometry, pointCloudMaterial);
-        // Position for better XR viewing: further back (-3 Z) and higher up (2.1 Y)
-        pointCloud.position.set(0, 2.1, -3);
+        // Position for better XR viewing: use dynamic position variables
+        pointCloud.position.set(0, modelY, modelZ);
         pointCloud.scale.set(1.0, 1.0, 1.0);
         pointCloud.rotation.set(0, 0, 0);
         scene.add(pointCloud);
@@ -853,5 +915,5 @@ void main() {
 
       animate();
     </script>
-  </body>
+</body>
 </html>
