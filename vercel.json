@@ -12,8 +12,13 @@
             "dest": "/public/$1"
         },
         {
-            "src": "/(.*)",
+            "src": "/public/(.*)",
+            "headers": { "cache-control": "max-age=604800, public" },
             "dest": "/public/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/$1"
         }
     ]
 }
