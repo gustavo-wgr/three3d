@@ -4,3 +4,8 @@ dist
 .vercel
 .DS_Store
 npm-debug.log*
+
+# Exclude GLB model files (they will be stored externally)
+public/*.glb
+public/glbscene.glb
+public/cacdoha_*.glb

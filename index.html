@@ -44,6 +44,7 @@
       import { XRHandModelFactory } from "three/addons/webxr/XRHandModelFactory.js";
       import { OculusHandModel } from "three/addons/webxr/OculusHandModel.js";
       import * as TWEEN from "tween";
+      import { getModelUrls } from "./src/config.js";
 
       let hand1, hand2;
       let controller1, controller2;
@@ -166,6 +167,15 @@
         // Optional: Add any end-of-press behavior
       });
 
+      // Controller 1: Squeeze button for Y position increase
+      controller1.addEventListener('squeezestart', () => {
+        if (isInXRSession) {
+          modelY += positionStep;
+          updateModelPosition();
+          console.log(`Model Y position: ${modelY.toFixed(1)}`);
+        }
+      });
+
       controller2.addEventListener('selectstart', () => {
         if (isInXRSession) {
           // Controller 2: Z position controls
@@ -179,13 +189,22 @@
         // Optional: Add any end-of-press behavior
       });
 
+      // Controller 2: Squeeze button for Z position decrease
+      controller2.addEventListener('squeezestart', () => {
+        if (isInXRSession) {
+          modelZ -= positionStep; // Move farther (more negative)
+          updateModelPosition();
+          console.log(`Model Z position: ${modelZ.toFixed(1)}`);
+        }
+      });
+
       // Add these after renderer.xr.enabled = true; but before animate()
       renderer.xr.addEventListener("sessionstart", () => {
         isInXRSession = true;
         // Always hide background in XR mode
         backgroundSphere.material.opacity = 0.0;
         console.log("XR session started - background hidden");
-        console.log("VR Controls: Left controller = Y position, Right controller = Z position");
+        console.log("VR Controls: Left controller = Y position (select=down, squeeze=up), Right controller = Z position (select=closer, squeeze=farther)");
       });
 
       renderer.xr.addEventListener("sessionend", () => {
@@ -218,10 +237,8 @@
       let isAnimatingAppearance = false;
       let appearanceAnimationStartTime = 0;
 
-      // Add array of GLB files
-      const glbFiles = [
-        "glbscene.glb",
-      ];
+      // Get GLB files from configuration
+      const glbFiles = getModelUrls();
 
       // Current GLB index
       let currentGlbIndex = 0;
