@@ -1,33 +1,26 @@
 // Configuration for external model storage
-// This file makes it easy to switch between different storage providers
+// Uses Hugging Face for production and local files for development
 
 const config = {
-  // Storage provider options
-  storageProviders: {
-    // GitHub Releases (free, good for public repos)
-    githubReleases: {
-      baseUrl: "https://github.com/gustavo-wgr/three3d/releases/download/v1.0",
-      models: [
-        "glbscene.glb",
-        "cacdoha_000089_access.glb",
-        "cacdoha_000122_access.glb",
-        "cacdoha_000123_access.glb",
-        "cacdoha_000140_access.glb",
-        "cacdoha_000149_access.glb",
-        "cacdoha_000152_access.glb",
-        "cacdoha_000196_access.glb",
-      ]
-    },
-    
-    
+  // Hugging Face storage (production)
+  huggingFace: {
+    baseUrl: "https://huggingface.co/gust-t/cacs/resolve/main",
+    models: [
+      "glbscene.glb",
+      "cacdoha_000089_access.glb",
+      "cacdoha_000122_access.glb",
+      "cacdoha_000123_access.glb",
+      "cacdoha_000140_access.glb",
+      "cacdoha_000149_access.glb",
+      "cacdoha_000152_access.glb",
+      "cacdoha_000196_access.glb",
+    ]
   },
   
-  // Current active provider
-  activeProvider: "githubReleases", // Change this to switch providers
-  
-  // Development mode - use local files
+  // Development mode detection
   isDevelopment: window.location.hostname === 'localhost' || 
-                 window.location.hostname === '127.0.0.1'
+                 window.location.hostname === '127.0.0.1' ||
+                 window.location.hostname.includes('localhost')
 };
 
 // Helper function to get model URLs
@@ -46,19 +39,10 @@ function getModelUrls() {
     ];
   }
   
-  const provider = config.storageProviders[config.activeProvider];
-  if (!provider) {
-    console.error(`Storage provider '${config.activeProvider}' not found`);
-    return [];
-  }
-  
-  if (provider.modelIds) {
-    // For providers that use IDs (like Google Drive)
-    return provider.modelIds.map(id => `${provider.baseUrl}${id}`);
-  } else {
-    // For providers that use direct file paths
-    return provider.models.map(model => `${provider.baseUrl}/${model}`);
-  }
+  // Return Hugging Face URLs for production
+  return config.huggingFace.models.map(model => 
+    `${config.huggingFace.baseUrl}/${model}`
+  );
 }
 
 // Export for ES6 modules
