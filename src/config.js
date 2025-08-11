@@ -4,16 +4,29 @@
 const config = {
   // Hugging Face storage (production)
   huggingFace: {
-    baseUrl: "https://huggingface.co/gust-t/cacs/resolve/main",
+    baseUrl: "https://huggingface.co/gust-t/cac2/resolve/main",
     models: [
       "glbscene.glb",
       "cacdoha_000089_access.glb",
+      "cacdoha_000110_access.glb",
+      "cacdoha_000116_access.glb",
       "cacdoha_000122_access.glb",
       "cacdoha_000123_access.glb",
       "cacdoha_000140_access.glb",
       "cacdoha_000149_access.glb",
       "cacdoha_000152_access.glb",
+      "cacdoha_000154_access.glb",
+      "cacdoha_000156_access.glb",
+      "cacdoha_000161_access.glb",
       "cacdoha_000196_access.glb",
+      "cacdoha_000321_access.glb",
+      "cacdoha_000345_access.glb",
+      "cacdoha_000412_access.glb",
+      "cacdoha_000422_access.glb",
+      "cacdoha_000443_access.glb",
+      "cacdoha_000457_access.glb",
+      "cacdoha_000490_access.glb",
+      "cacdoha_000491_access.glb",
     ]
   },
   
@@ -30,12 +43,25 @@ function getModelUrls() {
     return [
       "glbscene.glb",
       "cacdoha_000089_access.glb",
+      "cacdoha_000110_access.glb",
+      "cacdoha_000116_access.glb",
       "cacdoha_000122_access.glb",
       "cacdoha_000123_access.glb",
       "cacdoha_000140_access.glb",
       "cacdoha_000149_access.glb",
       "cacdoha_000152_access.glb",
+      "cacdoha_000154_access.glb",
+      "cacdoha_000156_access.glb",
+      "cacdoha_000161_access.glb",
       "cacdoha_000196_access.glb",
+      "cacdoha_000321_access.glb",
+      "cacdoha_000345_access.glb",
+      "cacdoha_000412_access.glb",
+      "cacdoha_000422_access.glb",
+      "cacdoha_000443_access.glb",
+      "cacdoha_000457_access.glb",
+      "cacdoha_000490_access.glb",
+      "cacdoha_000491_access.glb",
     ];
   }
   
