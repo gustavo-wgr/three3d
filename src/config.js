@@ -18,9 +18,9 @@ const modelFolders = {
   vggt: [
     "89.glb",
     "110.glb",
-    "116_vggt_0%.glb",
-    "122_vggt_0%.glb",
-    "123_vggt_0%.glb",
+    "116.glb",
+    "122.glb",
+    "123.glb",
     "140.glb",
     "149.glb",
     "152.glb",
