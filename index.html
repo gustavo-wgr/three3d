@@ -44,7 +44,7 @@
       import { XRHandModelFactory } from "three/addons/webxr/XRHandModelFactory.js";
       import { OculusHandModel } from "three/addons/webxr/OculusHandModel.js";
       import * as TWEEN from "tween";
-      import { getModelUrls } from "./src/config.js";
+      import { getModelUrls, getAvailableFolders } from "./src/config.js";
 
       let hand1, hand2;
       let controller1, controller2;
@@ -237,8 +237,10 @@
       let isAnimatingAppearance = false;
       let appearanceAnimationStartTime = 0;
 
-      // Get GLB files from configuration
-      const glbFiles = getModelUrls();
+      // Get available folders and initialize with default folder
+      const availableFolders = getAvailableFolders();
+      let selectedFolder = 'unik3d'; // Default folder
+      let glbFiles = getModelUrls(selectedFolder);
 
       // Current GLB index
       let currentGlbIndex = 0;
@@ -255,6 +257,7 @@
         appearanceAnimationDuration: 5.0, // Duration in seconds
         appearanceAnimationScale: 1.0, // How far back points come from
         appearanceDelay: 8.0, // Delay before animation starts in seconds
+        selectedFolder: selectedFolder, // Current selected folder
         currentGlb: glbFiles[0], // Current GLB file name
         toggleBackground: function () {
           toggleBackground();
@@ -270,6 +273,21 @@
           currentGlbIndex = (currentGlbIndex + 1) % glbFiles.length;
           params.currentGlb = glbFiles[currentGlbIndex];
 
+          // Load the new GLB
+          loadGlbModel(params.currentGlb);
+        },
+        switchFolder: function () {
+          // Switch to the other folder
+          selectedFolder = selectedFolder === 'unik3d' ? 'vggt' : 'unik3d';
+          params.selectedFolder = selectedFolder;
+          
+          // Update the GLB files list
+          glbFiles = getModelUrls(selectedFolder);
+          
+          // Reset to first GLB in new folder
+          currentGlbIndex = 0;
+          params.currentGlb = glbFiles[0];
+          
           // Load the new GLB
           loadGlbModel(params.currentGlb);
         },
@@ -345,6 +363,18 @@
 
       // Add GLB switcher folder
       const glbFolder = gui.addFolder("GLB Options");
+
+      // Add folder selection
+      const folderController = glbFolder
+        .add(params, "selectedFolder", availableFolders)
+        .name("Model Folder")
+        .onChange(function (value) {
+          selectedFolder = value;
+          glbFiles = getModelUrls(selectedFolder);
+          currentGlbIndex = 0;
+          params.currentGlb = glbFiles[0];
+          loadGlbModel(params.currentGlb);
+        });
 
       // Add read-only display of current GLB
       const glbController = glbFolder
@@ -688,7 +718,7 @@ void main() {
       }
 
       // Function to calculate bounding box and scale geometry to fit demo sphere size
-      function scaleGeometryToFitDemoSphere(geometry) {
+      function scaleGeometryToFitDemoSphere(geometry, glbUrl = '') {
         // Calculate bounding box
         geometry.computeBoundingBox();
         const boundingBox = geometry.boundingBox;
@@ -724,7 +754,16 @@ void main() {
           const newZ = (z - center.z) * scale;
           
           // Mirror the Z-axis to flip the model front-to-back
-          positions.setXYZ(i, newX, newY, -newZ);
+          let finalX = newX;
+          let finalY = newY;
+          let finalZ = -newZ;
+          
+          // Special case: flip Y-axis for GLB files from the vggt folder that are upside down
+          if (glbUrl.includes('vggt/')) {
+            finalY = -newY;
+          }
+          
+          positions.setXYZ(i, finalX, finalY, finalZ);
         }
         
         // Update bounding box
@@ -757,14 +796,14 @@ void main() {
             let foundPointCloud = false;
 
             model.traverse((child) => {
-              if (child.isPoints || child.isMesh) {
+              if ((child.isPoints || child.isMesh) && !foundPointCloud) {
                 foundPointCloud = true;
                 console.log(`Found point cloud in ${glbUrl}`);
 
                 const geometry = child.geometry;
                 
                 // Scale the geometry to fit the demo sphere size
-                const scaledGeometry = scaleGeometryToFitDemoSphere(geometry);
+                const scaledGeometry = scaleGeometryToFitDemoSphere(geometry, glbUrl);
                 originalGeometry = scaledGeometry.clone();
 
                 // Handle color attributes
