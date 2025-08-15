@@ -142,6 +142,7 @@
       scene.add(controllerGrip2);
 
       // VR Model position control variables
+      let modelX = 0;
       let modelY = 2.1;
       let modelZ = -3;
       const positionStep = 0.1; // How much to move per button press
@@ -149,7 +150,7 @@
       // Function to update model position
       function updateModelPosition() {
         if (pointCloud) {
-          pointCloud.position.set(0, modelY, modelZ);
+          pointCloud.position.set(modelX, modelY, modelZ);
         }
       }
 
@@ -167,9 +168,13 @@
         // Optional: Add any end-of-press behavior
       });
 
-      // Controller 1: Squeeze button for Y position increase
+      // Controller 1: Squeeze button for Y position increase and X movement (double-click)
       controller1.addEventListener('squeezestart', () => {
         if (isInXRSession) {
+          // Handle double-click for X movement
+          handleGripDoubleClick(controller1, true);
+          
+          // Single click still moves Y up (existing behavior)
           modelY += positionStep;
           updateModelPosition();
           console.log(`Model Y position: ${modelY.toFixed(1)}`);
@@ -178,7 +183,10 @@
 
       controller2.addEventListener('selectstart', () => {
         if (isInXRSession) {
-          // Controller 2: Z position controls
+          // Handle double-click for mesh switching
+          handleTriggerDoubleClick();
+          
+          // Single click still moves Z closer (existing behavior)
           modelZ += positionStep; // Move closer (less negative)
           updateModelPosition();
           console.log(`Model Z position: ${modelZ.toFixed(1)}`);
@@ -189,14 +197,101 @@
         // Optional: Add any end-of-press behavior
       });
 
-      // Controller 2: Squeeze button for Z position decrease
+      // Controller 2: Squeeze button for Z position decrease and X movement (double-click)
       controller2.addEventListener('squeezestart', () => {
         if (isInXRSession) {
+          // Handle double-click for X movement
+          handleGripDoubleClick(controller2, false);
+          
+          // Single click still moves Z farther (existing behavior)
           modelZ -= positionStep; // Move farther (more negative)
           updateModelPosition();
           console.log(`Model Z position: ${modelZ.toFixed(1)}`);
         }
       });
+
+
+
+      // Note: Thumbstick events removed - now using double-click grip for X movement
+
+      // Double-click grip variables for X movement
+      let leftGripClickCount = 0;
+      let rightGripClickCount = 0;
+      let leftGripLastClickTime = 0;
+      let rightGripLastClickTime = 0;
+      const doubleClickTimeWindow = 500; // milliseconds
+      const xMovementStep = 0.5; // How much to move X per double-click
+
+      // Double-click trigger variables for mesh switching
+      let rightTriggerClickCount = 0;
+      let rightTriggerLastClickTime = 0;
+
+      // Function to handle double-click grip for X movement
+      function handleGripDoubleClick(controller, isLeftController) {
+        const currentTime = Date.now();
+        const clickCount = isLeftController ? leftGripClickCount : rightGripClickCount;
+        const lastClickTime = isLeftController ? leftGripLastClickTime : rightGripLastClickTime;
+        
+        if (currentTime - lastClickTime < doubleClickTimeWindow) {
+          // Double-click detected
+          if (isLeftController) {
+            // Left controller double-click: move X left
+            modelX -= xMovementStep;
+            console.log(`Double-click left grip: Model X moved left to ${modelX.toFixed(1)}`);
+          } else {
+            // Right controller double-click: move X right
+            modelX += xMovementStep;
+            console.log(`Double-click right grip: Model X moved right to ${modelX.toFixed(1)}`);
+          }
+          updateModelPosition();
+          
+          // Reset click count
+          if (isLeftController) {
+            leftGripClickCount = 0;
+            leftGripLastClickTime = 0;
+          } else {
+            rightGripClickCount = 0;
+            rightGripLastClickTime = 0;
+          }
+        } else {
+          // First click
+          if (isLeftController) {
+            leftGripClickCount = 1;
+            leftGripLastClickTime = currentTime;
+            console.log("Left grip single click - waiting for double-click...");
+          } else {
+            rightGripClickCount = 1;
+            rightGripLastClickTime = currentTime;
+            console.log("Right grip single click - waiting for double-click...");
+          }
+        }
+      }
+
+      // Function to handle double-click trigger for mesh switching
+      function handleTriggerDoubleClick() {
+        const currentTime = Date.now();
+        
+        if (currentTime - rightTriggerLastClickTime < doubleClickTimeWindow) {
+          // Double-click detected - switch to next mesh
+          console.log("Double-click right trigger: Switching to next mesh");
+          
+          // Increment the index and wrap around if needed
+          currentGlbIndex = (currentGlbIndex + 1) % glbFiles.length;
+          params.currentGlb = glbFiles[currentGlbIndex];
+          
+          // Load the new GLB
+          loadGlbModel(params.currentGlb);
+          
+          // Reset click count
+          rightTriggerClickCount = 0;
+          rightTriggerLastClickTime = 0;
+        } else {
+          // First click
+          rightTriggerClickCount = 1;
+          rightTriggerLastClickTime = currentTime;
+          console.log("Right trigger single click - waiting for double-click...");
+        }
+      }
 
       // Add these after renderer.xr.enabled = true; but before animate()
       renderer.xr.addEventListener("sessionstart", () => {
@@ -204,7 +299,7 @@
         // Always hide background in XR mode
         backgroundSphere.material.opacity = 0.0;
         console.log("XR session started - background hidden");
-        console.log("VR Controls: Left controller = Y position (select=down, squeeze=up), Right controller = Z position (select=closer, squeeze=farther)");
+        console.log("VR Controls: Left controller = X position (double-click grip left), Y position (select=down, squeeze=up), Right controller = Z position (select=closer, squeeze=farther), X position (double-click grip right), Next mesh (double-click trigger)");
       });
 
       renderer.xr.addEventListener("sessionend", () => {
