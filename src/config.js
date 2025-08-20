@@ -38,6 +38,7 @@ const modelFolders = {
     "491.glb",
   ],
   unik3d: [
+    "test.glb",
     "cacdoha_000089_access.glb",
     "cacdoha_000110_access.glb",
     "cacdoha_000116_access.glb",
@@ -58,11 +59,17 @@ const modelFolders = {
     "cacdoha_000457_access.glb",
     "cacdoha_000490_access.glb",
     "cacdoha_000491_access.glb",
-  ]
+  ],
+  pointcloud_video: [] // Will be populated dynamically
 };
 
 // Helper function to get model URLs based on selected folder
 function getModelUrls(selectedFolder = 'unik3d') {
+  if (selectedFolder === 'pointcloud_video') {
+    // Special handling for pointcloud video - generate frame URLs
+    return generatePointcloudVideoUrls();
+  }
+  
   if (config.isDevelopment) {
     // Return local paths for development with folder prefix
     return modelFolders[selectedFolder].map(model => 
@@ -74,6 +81,25 @@ function getModelUrls(selectedFolder = 'unik3d') {
   return modelFolders[selectedFolder].map(model => 
     `${config.huggingFace.baseUrl}/${selectedFolder}/${model}`
   );
+}
+
+// Generate URLs for pointcloud video frames
+function generatePointcloudVideoUrls() {
+  const urls = [];
+  // Generate frame URLs from 0 to 80 (81 frames total)
+  for (let i = 0; i <= 80; i++) {
+    const frameNumber = i.toString().padStart(6, '0');
+    const filename = `frame_${frameNumber}_pointcloud.glb`;
+    const url = `pointcloud_video/${filename}`;
+    urls.push(url);
+    
+    // Debug logging for first few frames
+    if (i < 5) {
+      console.log(`Generated URL ${i}: ${url}`);
+    }
+  }
+  console.log(`Generated ${urls.length} video frame URLs`);
+  return urls;
 }
 
 // Helper function to get available folders

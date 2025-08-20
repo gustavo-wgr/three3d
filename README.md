@@ -1,24 +1,112 @@
-# glTF Viewer
+# 3D Scene Viewer - Modular Architecture
 
-Preview glTF 2.0 models in WebGL using three.js and a drag-and-drop interface.
+This project has been refactored from a single large `index.html` file into a modular JavaScript architecture for better maintainability and organization.
 
-Viewer: [gltf-viewer.donmccurdy.com](https://gltf-viewer.donmccurdy.com/)
-
-![screenshot](https://user-images.githubusercontent.com/1848368/31580352-b7354096-b101-11e7-86d7-f07677835812.png)
-
-## Quickstart
+## Project Structure
 
 ```
-npm install
-npm run dev
+three3d/
+├── index.html                 # Clean HTML entry point
+├── src/
+│   ├── main.js               # Main application orchestrator
+│   ├── scene-setup.js        # Scene, camera, and renderer setup
+│   ├── xr-controllers.js     # XR controller management
+│   ├── pointcloud-manager.js # Point cloud loading and management
+│   ├── shaders.js            # GLSL shader definitions
+│   ├── gui-manager.js        # GUI setup and management
+│   ├── config.js             # Configuration and model URLs
+│   ├── pointcloud-player.js  # Video playback functionality
+│   └── components/           # React components (if applicable)
+└── public/                   # Static assets (GLB files)
 ```
 
-## glTF 2.0 Resources
+## Module Descriptions
 
--   [THREE.GLTFLoader](https://threejs.org/docs/#examples/en/loaders/GLTFLoader)
--   [glTF 2.0 Specification](https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md)
--   [glTF 2.0 Sample Models](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/)
+### `main.js` - Main Application
+- Orchestrates all other modules
+- Manages application state and parameters
+- Handles initialization and animation loop
+- Coordinates communication between modules
 
-## Known Issues
+### `scene-setup.js` - Scene Setup
+- Creates and configures Three.js scene, camera, and renderer
+- Sets up lighting and background sphere
+- Handles XR session events
+- Manages window resize events
 
--   [ ] Limited drag-and-drop support in Safari.
+### `xr-controllers.js` - XR Controllers
+- Manages VR controller setup and interactions
+- Handles controller button events and double-click detection
+- Controls model positioning in XR mode
+- Provides callbacks for model position changes and mesh switching
+
+### `pointcloud-manager.js` - Point Cloud Management
+- Loads and processes GLB models
+- Handles geometry scaling and color attribute mapping
+- Manages point cloud sampling and evaporation effects
+- Controls appearance animations
+- Provides both normal and video mode point cloud creation
+
+### `shaders.js` - Shader Definitions
+- Contains vertex and fragment shader code
+- Implements appearance animation and evaporation effects
+- Provides easing functions and randomization
+
+### `gui-manager.js` - GUI Management
+- Sets up dat.GUI controls
+- Organizes GUI into logical folders
+- Handles GUI callback management
+- Updates GUI state from application events
+
+### `config.js` - Configuration
+- Manages model URLs and folder structure
+- Provides utility functions for getting available models
+- Handles different model categories (unik3d, vggt, pointcloud_video)
+
+### `pointcloud-player.js` - Video Playback
+- Handles video frame playback
+- Manages frame loading and switching
+- Controls playback speed and timing
+- Provides video mode functionality
+
+## Key Features
+
+1. **Modular Architecture**: Each module has a single responsibility
+2. **Clean Separation**: UI, logic, and rendering are separated
+3. **Callback System**: Modules communicate through well-defined callbacks
+4. **State Management**: Centralized state management in main application
+5. **XR Support**: Full VR controller support with intuitive controls
+6. **Video Playback**: Support for point cloud video sequences
+7. **Real-time Effects**: Evaporation effects
+
+## Usage
+
+The application is initialized by importing the `MainApplication` class and calling its `initialize()` method:
+
+```javascript
+import { MainApplication } from "./src/main.js";
+
+const app = new MainApplication();
+await app.initialize();
+```
+
+## Benefits of Refactoring
+
+1. **Maintainability**: Code is now easier to understand and modify
+2. **Reusability**: Modules can be reused in other projects
+3. **Testability**: Individual modules can be tested in isolation
+4. **Scalability**: New features can be added as separate modules
+5. **Debugging**: Issues can be isolated to specific modules
+6. **Collaboration**: Multiple developers can work on different modules
+
+## VR Controls
+
+- **Left Controller**: Y position (select=down, squeeze=up), X position (double-click grip left)
+- **Right Controller**: Z position (select=closer, squeeze=farther), X position (double-click grip right), Next mesh (double-click trigger)
+
+## GUI Controls
+
+The GUI is organized into several folders:
+- **Point Cloud**: Size, sampling, evaporation effects
+- **GLB Options**: Model selection and switching
+- **Video Playback**: Video mode controls and frame navigation

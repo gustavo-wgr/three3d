@@ -120,6 +120,9 @@ export class Viewer {
 			modelOffsetX: 0,
 			modelOffsetY: 0,
 			modelOffsetZ: 3,
+			
+			// Transform options
+			flipUpsideDown: false,
 		};
 
 		this.prevTime = 0;
@@ -388,6 +391,9 @@ export class Viewer {
 		this.scene.add(object);
 		this.content = object;
 
+		// Store base rotation for flip calculations
+		this.baseContentRotationX = this.content.rotation.x;
+
 		this.state.punctualLights = true;
 
 		this.content.traverse((node) => {
@@ -402,6 +408,9 @@ export class Viewer {
 		this.updateGUI();
 		this.updateEnvironment();
 		this.updateDisplay();
+
+		// Ensure flip state is applied on new content
+		this.applyFlip();
 
 		window.VIEWER.scene = this.content;
 
@@ -582,6 +591,18 @@ export class Viewer {
 		}
 
 		this.controls.autoRotate = this.state.autoRotate;
+
+		// Apply flip, if enabled
+		this.applyFlip();
+	}
+
+	applyFlip() {
+		if (!this.content) return;
+		// Ensure base rotation reference exists
+		if (this.baseContentRotationX === undefined) {
+			this.baseContentRotationX = this.content.rotation.x;
+		}
+		this.content.rotation.x = this.baseContentRotationX + (this.state.flipUpsideDown ? Math.PI : 0);
 	}
 
 	updateBackground() {
@@ -895,6 +916,10 @@ export class Viewer {
 				this.setContent(currentContent, this.clips);
 			}
 		});
+		
+		// Flip upside down toggle
+		const flipCtrl = modelPosFolder.add(this.state, 'flipUpsideDown').name('Flip Upside Down');
+		flipCtrl.onChange(() => this.applyFlip());
 		
 		const modelOffsetFolder = modelPosFolder.addFolder('Model Offset');
 		const modelOffsetXCtrl = modelOffsetFolder.add(this.state, 'modelOffsetX', -20, 20, 0.1).name('Offset X');
