@@ -43,14 +43,13 @@ three3d/
 ### `pointcloud-manager.js` - Point Cloud Management
 - Loads and processes GLB models
 - Handles geometry scaling and color attribute mapping
-- Manages point cloud sampling and evaporation effects
+- Manages point cloud sampling
 - Controls appearance animations
 - Provides both normal and video mode point cloud creation
 
 ### `shaders.js` - Shader Definitions
 - Contains vertex and fragment shader code
-- Implements appearance animation and evaporation effects
-- Provides easing functions and randomization
+- Implements circular point rendering
 
 ### `gui-manager.js` - GUI Management
 - Sets up dat.GUI controls
@@ -77,7 +76,7 @@ three3d/
 4. **State Management**: Centralized state management in main application
 5. **XR Support**: Full VR controller support with intuitive controls
 6. **Video Playback**: Support for point cloud video sequences
-7. **Real-time Effects**: Evaporation effects
+7. **Real-time Effects**: Morphing between frames and circular point rendering
 
 ## Usage
 
@@ -107,6 +106,6 @@ await app.initialize();
 ## GUI Controls
 
 The GUI is organized into several folders:
-- **Point Cloud**: Size, sampling, evaporation effects
+- **Point Cloud**: Size and sampling
 - **GLB Options**: Model selection and switching
 - **Video Playback**: Video mode controls and frame navigation

@@ -18,7 +18,7 @@
 		]
 	},
 	"scripts": {
-		"dev": "vite --port 3000",
+		"dev": "vite --host 127.0.0.1 --port 5137",
 		"build": "vite build",
 		"clean": "rm -rf dist/* || true",
 		"test": "node test/gen_test.js",

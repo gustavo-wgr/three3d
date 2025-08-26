@@ -10,6 +10,7 @@ export class PointcloudManager {
     this.pointCloudMaterial = null;
     this.clock = new THREE.Clock();
     this.baseRotationX = 0;
+    this.currentGlbUrl = null; // Store current GLB URL for rotation logic
     // Morphing state
     this.morphFromPositions = null;
     this.morphToPositions = null;
@@ -18,104 +19,11 @@ export class PointcloudManager {
     this.isMorphing = false;
     // Canonical bbox for pointcloud video normalization
     this.videoCanonicalSize = null; // THREE.Vector3 of first video frame bbox size
+    // Lowest-Z point color storage
+    this.lowestZColor = null;
   }
 
-  // Function to calculate bounding box and scale geometry
-  // - Normal mode: fit demo sphere (uniform scale by max dimension to fixed diameter)
-  // - Video mode (glbUrl includes 'pointcloud_video'): enforce identical bounding boxes across frames
-  scaleGeometryToFitDemoSphere(geometry, glbUrl = '') {
-    // Calculate bounding box
-    geometry.computeBoundingBox();
-    const boundingBox = geometry.boundingBox;
-    
-    // Get the size of the geometry
-    const size = new THREE.Vector3();
-    boundingBox.getSize(size);
-    
-    // Get the center of the geometry
-    const center = new THREE.Vector3();
-    boundingBox.getCenter(center);
-    
-    // Demo sphere has radius 2, so diameter is 4
-    const targetSize = 4.0;
-    const isVideo = typeof glbUrl === 'string' && glbUrl.includes('pointcloud_video');
-    const scaledGeometry = geometry.clone();
-    const positions = scaledGeometry.attributes.position;
-    
-    if (isVideo) {
-      // Initialize canonical size from first frame
-      if (!this.videoCanonicalSize) {
-        this.videoCanonicalSize = size.clone();
-      }
-      // Per-axis scale to map current bbox size to canonical size
-      const sxBase = this.videoCanonicalSize.x > 0 && size.x > 0 ? this.videoCanonicalSize.x / size.x : 1.0;
-      const syBase = this.videoCanonicalSize.y > 0 && size.y > 0 ? this.videoCanonicalSize.y / size.y : 1.0;
-      const szBase = this.videoCanonicalSize.z > 0 && size.z > 0 ? this.videoCanonicalSize.z / size.z : 1.0;
-      // Then uniform scale to fit demo target size consistently across frames
-      const canonicalMax = Math.max(this.videoCanonicalSize.x, this.videoCanonicalSize.y, this.videoCanonicalSize.z);
-      const uniform = canonicalMax > 0 ? targetSize / canonicalMax : 1.0;
-      const sx = sxBase * uniform;
-      const sy = syBase * uniform;
-      const sz = szBase * uniform;
-      
-      for (let i = 0; i < positions.count; i++) {
-        const x = positions.getX(i);
-        const y = positions.getY(i);
-        const z = positions.getZ(i);
-        
-        // Center and per-axis scale to canonical bbox, then apply uniform demo scale
-        const newX = (x - center.x) * sx;
-        const newY = (y - center.y) * sy;
-        const newZ = (z - center.z) * sz;
-        
-        // Mirror Z for consistency with rest of app
-        const finalX = newX;
-        const finalY = newY;
-        const finalZ = -newZ;
-        positions.setXYZ(i, finalX, finalY, finalZ);
-      }
-      // Update bounding box
-      scaledGeometry.computeBoundingBox();
-      return scaledGeometry;
-    }
-    
-    const maxDimension = Math.max(size.x, size.y, size.z);
-    const scale = targetSize / maxDimension;
-    
-    console.log(`Original size: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`);
-    console.log(`Scaling by: ${scale.toFixed(3)}`);
-    
-    // Create a scaled and centered geometry (normal mode)
-    
-    
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i);
-      const y = positions.getY(i);
-      const z = positions.getZ(i);
-      
-      // Center and scale
-      const newX = (x - center.x) * scale;
-      const newY = (y - center.y) * scale;
-      const newZ = (z - center.z) * scale;
-      
-      // Mirror the Z-axis to flip the model front-to-back
-      let finalX = newX;
-      let finalY = newY;
-      let finalZ = -newZ;
-      
-      // Special case: flip Y-axis for GLB files from the vggt folder that are upside down
-      if (glbUrl.includes('vggt/')) {
-        finalY = -newY;
-      }
-      
-      positions.setXYZ(i, finalX, finalY, finalZ);
-    }
-    
-    // Update bounding box
-    scaledGeometry.computeBoundingBox();
-    
-    return scaledGeometry;
-  }
+  // Removed scaling — preserve original geometry scale
 
   resetVideoCanonical() {
     this.videoCanonicalSize = null;
@@ -125,6 +33,9 @@ export class PointcloudManager {
   loadGlbModel(glbUrl, params, onLoadCallback) {
     console.log(`Loading GLB model: ${glbUrl}`);
     document.getElementById("info").textContent = `Loading ${glbUrl}...`;
+
+    // Store current GLB URL for rotation logic
+    this.currentGlbUrl = glbUrl;
 
     // Remove existing point cloud
     if (this.pointCloud) {
@@ -151,9 +62,8 @@ export class PointcloudManager {
 
             const geometry = child.geometry;
             
-            // Scale the geometry to fit the demo sphere size
-            const scaledGeometry = this.scaleGeometryToFitDemoSphere(geometry, glbUrl);
-            this.originalGeometry = scaledGeometry.clone();
+            // Preserve original geometry scale
+            this.originalGeometry = geometry.clone();
 
             // Handle color attributes
             if (geometry.attributes.color) {
@@ -178,13 +88,41 @@ export class PointcloudManager {
               );
             }
 
-            // Create the subsampled point cloud with evaporation effect
+            // Find and log the color of the point with the lowest Z value
+            try {
+              const positionAttribute = this.originalGeometry.attributes.position;
+              const colorAttribute = this.originalGeometry.attributes.color;
+              if (positionAttribute && colorAttribute && positionAttribute.count > 0 && colorAttribute.count === positionAttribute.count) {
+                let minimumZ = Infinity;
+                let minimumIndex = -1;
+                for (let i = 0; i < positionAttribute.count; i++) {
+                  const zValue = positionAttribute.getZ(i);
+                  if (zValue < minimumZ) {
+                    minimumZ = zValue;
+                    minimumIndex = i;
+                  }
+                }
+                if (minimumIndex >= 0) {
+                  const redValue = colorAttribute.getX(minimumIndex);
+                  const greenValue = colorAttribute.getY(minimumIndex);
+                  const blueValue = colorAttribute.getZ(minimumIndex);
+                  console.log(`Lowest-Z point color (r,g,b): ${redValue}, ${greenValue}, ${blueValue}`);
+                  this.lowestZColor = new THREE.Color(redValue, greenValue, blueValue);
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to compute lowest-Z point color', e);
+            }
+
+            // Create the subsampled point cloud
             this.updatePointCloudSampling(params.subsampleRate, params);
             document.getElementById("info").textContent = `Loaded: ${glbUrl}`;
             
             if (onLoadCallback) {
               onLoadCallback(this.pointCloud, 0);
             }
+
+            console.log(`Finished loading GLB model: ${glbUrl}`);
           }
         });
 
@@ -192,12 +130,11 @@ export class PointcloudManager {
           console.warn(`No point cloud found in ${glbUrl}!`);
           this.createDemoPointCloud(params);
           document.getElementById("info").textContent = `No points in ${glbUrl}, using demo`;
+          console.log(`Finished loading GLB model (no points, demo used): ${glbUrl}`);
         }
       },
       (xhr) => {
-        const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-        console.log(`${percentComplete}% loaded`);
-        document.getElementById("info").textContent = `Loading ${glbUrl}: ${percentComplete}%`;
+        // Quiet progress: no console percent logs
       },
       (error) => {
         console.error(`Error loading ${glbUrl}:`, error);
@@ -210,6 +147,8 @@ export class PointcloudManager {
   // Create a demo point cloud if GLB fails or has no points
   createDemoPointCloud(params) {
     console.log("Creating demo point cloud");
+    // Clear current GLB URL since we're creating a demo point cloud
+    this.currentGlbUrl = null;
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
     const colors = [];
@@ -245,11 +184,11 @@ export class PointcloudManager {
 
     this.originalGeometry = geometry.clone();
 
-    // Apply subsampling and evaporation
+    // Apply subsampling
     this.updatePointCloudSampling(params.subsampleRate, params);
   }
 
-  // Function to subsample the point cloud and add evaporation effect
+  // Function to subsample the point cloud
   updatePointCloudSampling(rate, params, position = { x: 0, y: 2.1, z: -3 }) {
     if (!this.originalGeometry) return;
 
@@ -269,22 +208,12 @@ export class PointcloudManager {
     // Create arrays for the new attributes
     const newPositions = new Float32Array(targetCount * 3);
     const newColors = new Float32Array(targetCount * 3);
-    const evaporationFactors = existingGeometry ? null : new Float32Array(targetCount);
+    // Evaporation removed
 
     // Calculate stride for even sampling
     const stride = originalCount / targetCount;
 
-    // Calculate evaporation count
-    let evaporatingIndices = null;
-    if (!existingGeometry) {
-      const evaporationCount = Math.floor(targetCount * params.evaporationAmount);
-      console.log(`Setting ${evaporationCount} points to evaporate out of ${targetCount} total`);
-      // Random indices for evaporating points
-      evaporatingIndices = new Set();
-      while (evaporatingIndices.size < evaporationCount) {
-        evaporatingIndices.add(Math.floor(Math.random() * targetCount));
-      }
-    }
+    // Evaporation removed
 
     // Sample points using stride
     for (let i = 0; i < targetCount; i++) {
@@ -310,14 +239,7 @@ export class PointcloudManager {
         newColors[i * 3 + 2] = 1.0;
       }
 
-      // Set evaporation factor
-      if (!existingGeometry && evaporationFactors) {
-        if (evaporatingIndices.has(i)) {
-          evaporationFactors[i] = 0.2 + Math.random() * 0.8; // Random speed factor
-        } else {
-          evaporationFactors[i] = 0.0; // No evaporation
-        }
-      }
+      // Evaporation removed
     }
 
     if (!existingGeometry) {
@@ -330,19 +252,13 @@ export class PointcloudManager {
       colAttr.setUsage(THREE.DynamicDrawUsage);
       newGeometry.setAttribute("color", colAttr);
 
-      const evapAttr = new THREE.BufferAttribute(evaporationFactors, 1);
-      newGeometry.setAttribute("evaporationFactor", evapAttr);
+      // Evaporation attribute removed
 
       // Create shader material
       this.pointCloudMaterial = new THREE.ShaderMaterial({
         uniforms: {
           pointSize: { value: params.pointSize },
           time: { value: 0.0 },
-          evaporationSpeed: { value: params.evaporationSpeed },
-          maxHeight: { value: params.maxHeight },
-          evaporationEnabled: {
-            value: params.evaporationEnabled ? 1.0 : 0.0,
-          },
         },
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
@@ -356,6 +272,11 @@ export class PointcloudManager {
       const initialScale = (params && typeof params.modelScale === 'number') ? params.modelScale : 1.0;
       this.pointCloud.scale.set(initialScale, initialScale, initialScale);
       this.pointCloud.rotation.set(0, 0, 0);
+      // Ensure model faces +Z (rotate 180 degrees around Y) - only for unik3d models
+      if (this.currentGlbUrl && this.currentGlbUrl.includes('unik3d')) {
+        this.pointCloud.rotation.y = Math.PI;
+        console.log(`Applied 180° Y-axis rotation to unik3d model: ${this.currentGlbUrl}`);
+      }
       this.baseRotationX = this.pointCloud.rotation.x || 0;
       // Apply initial flip state if requested
       if (params && params.flipUpsideDown) {
@@ -411,9 +332,29 @@ export class PointcloudManager {
     }
   }
 
-
-
-
+  clearPointCloud() {
+    try {
+      if (this.pointCloud) {
+        this.scene.remove(this.pointCloud);
+        if (this.pointCloud.geometry) {
+          this.pointCloud.geometry.dispose();
+        }
+        if (this.pointCloud.material) {
+          this.pointCloud.material.dispose();
+        }
+        this.pointCloud = null;
+      }
+      this.pointCloudMaterial = null;
+      this.originalGeometry = null;
+      this.isMorphing = false;
+      this.morphFromPositions = null;
+      this.morphToPositions = null;
+      this.currentGlbUrl = null;
+      console.log('Point cloud cleared');
+    } catch (e) {
+      console.warn('Failed to clear point cloud', e);
+    }
+  }
 
   updatePointCloudPosition(x, y, z) {
     if (this.pointCloud) {
@@ -430,9 +371,6 @@ export class PointcloudManager {
   updateMaterialUniforms(params) {
     if (this.pointCloudMaterial) {
       this.pointCloudMaterial.uniforms.pointSize.value = params.pointSize;
-      this.pointCloudMaterial.uniforms.evaporationSpeed.value = params.evaporationSpeed;
-      this.pointCloudMaterial.uniforms.maxHeight.value = params.maxHeight;
-      this.pointCloudMaterial.uniforms.evaporationEnabled.value = params.evaporationEnabled ? 1.0 : 0.0;
     }
   }
 

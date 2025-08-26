@@ -3,17 +3,18 @@ export class GUIManager {
     this.gui = gui;
     this.params = params;
     this.callbacks = callbacks;
+    this.controllers = {};
   }
 
   setupGUI() {
     // Point cloud controls
-    this.gui.add(this.params, "pointSize", 0.001, 0.02).onChange((value) => {
+    this.controllers.pointSize = this.gui.add(this.params, "pointSize", 0.001, 0.02).onChange((value) => {
       if (this.callbacks.onPointSizeChange) {
         this.callbacks.onPointSizeChange(value);
       }
     });
 
-    this.gui
+    this.controllers.subsampleRate = this.gui
       .add(this.params, "subsampleRate", 0.01, 1.0, 0.01)
       .name("Sample Rate")
       .onChange((value) => {
@@ -22,44 +23,7 @@ export class GUIManager {
         }
       });
 
-    this.gui
-      .add(this.params, "evaporationAmount", 0.001, 0.05, 0.001)
-      .name("Evaporation %")
-      .onChange((value) => {
-        if (this.callbacks.onEvaporationAmountChange) {
-          this.callbacks.onEvaporationAmountChange(value);
-        }
-      });
-
-    this.gui
-      .add(this.params, "evaporationSpeed", 0.02, 1.0, 0.01)
-      .name("Evap. Speed")
-      .onChange((value) => {
-        if (this.callbacks.onEvaporationSpeedChange) {
-          this.callbacks.onEvaporationSpeedChange(value);
-        }
-      });
-
-    this.gui
-      .add(this.params, "maxHeight", 0.5, 5.0, 0.1)
-      .name("Max Height")
-      .onChange((value) => {
-        if (this.callbacks.onMaxHeightChange) {
-          this.callbacks.onMaxHeightChange(value);
-        }
-      });
-
-    this.gui
-      .add(this.params, "evaporationEnabled")
-      .name("Enable Effect")
-      .onChange((value) => {
-        if (this.callbacks.onEvaporationEnabledChange) {
-          this.callbacks.onEvaporationEnabledChange(value);
-        }
-      });
-
-    // Model scaling control
-    this.gui
+    this.controllers.modelScale = this.gui
       .add(this.params, "modelScale", 0.01, 10.0, 0.01)
       .name("Model Scale")
       .onChange((value) => {
@@ -68,11 +32,16 @@ export class GUIManager {
         }
       });
 
+    // Model scaling control
+
     // GLB Options folder
     this.setupGLBOptions();
 
+    // Preset Offset controls
+    this.setupPresetOffsetControls();
+
     // Background controls
-    this.gui.add(this.params, "toggleBackground").name("Toggle Background");
+    //this.gui.add(this.params, "toggleBackground").name("Toggle Background");
     this.gui
       .add(this.params, "xrBlackBackground")
       .name("XR Black Background")
@@ -82,18 +51,37 @@ export class GUIManager {
         }
       });
 
-    // Morph option for video playback
     this.gui
-      .add(this.params, "morphEnabled")
-      .name("Morph Video Frames")
+      .add(this.params, "coloredBackground")
+      .name("Colored Background")
       .onChange((value) => {
-        if (this.callbacks.onMorphToggle) {
-          this.callbacks.onMorphToggle(value);
+        if (this.callbacks.onColoredBackgroundToggle) {
+          this.callbacks.onColoredBackgroundToggle(value);
         }
       });
 
-    // Video Playback Controls
-    this.setupVideoControls();
+    // Color picker for background
+    // dat.GUI supports color strings like '#ff00aa'
+    this.controllers.backgroundColorPicker = this.gui
+      .addColor(this.params, 'backgroundColorPicker')
+      .name('Pick a Color')
+      .onChange((value) => {
+        if (this.callbacks.onBackgroundColorPick) {
+          this.callbacks.onBackgroundColorPick(value);
+        }
+      });
+
+    // Auto switch toggle
+    this.gui
+      .add(this.params, "autoSwitch")
+      .name("Auto Switch (10s)")
+      .onChange((value) => {
+        if (this.callbacks.onAutoSwitchToggle) {
+          this.callbacks.onAutoSwitchToggle(value);
+        }
+      });
+
+    // Video playback removed
 
     // Position controls
     this.setupPositionControls();
@@ -136,35 +124,41 @@ export class GUIManager {
     glbFolder.open();
   }
 
-  setupVideoControls() {
-    const videoFolder = this.gui.addFolder("Video Playback");
-    
-    // Add video mode toggle
-    videoFolder.add(this.params, "toggleVideoMode").name("Toggle Video Mode");
-    
-    // Add playback controls
-    videoFolder.add(this.params, "playVideo").name("Play");
-    videoFolder.add(this.params, "pauseVideo").name("Pause");
-    videoFolder.add(this.params, "stopVideo").name("Stop");
-    videoFolder.add(this.params, "nextFrame").name("Next Frame");
-    videoFolder.add(this.params, "previousFrame").name("Previous Frame");
-    
-    // Add frame slider
-    videoFolder.add(this.params, "currentVideoFrame", 0, 80, 1).name("Frame").onChange((value) => {
-      if (this.callbacks.onVideoFrameChange) {
-        this.callbacks.onVideoFrameChange(value);
-      }
-    });
-    
-    // Add playback speed control
-    videoFolder.add(this.params, "playbackSpeed", 0.5, 4.0, 0.5).name("Speed (FPS)").onChange((value) => {
-      if (this.callbacks.onPlaybackSpeedChange) {
-        this.callbacks.onPlaybackSpeedChange(value);
-      }
-    });
-    
-    // Expand the folder by default
-    videoFolder.open();
+  // Video controls removed
+
+  setupPresetOffsetControls() {
+    const offsetFolder = this.gui.addFolder("Preset Offset");
+
+    this.controllers.presetOffsetX = offsetFolder
+      .add(this.params, "presetOffsetX", -10.0, 10.0, 0.01)
+      .name("X")
+      .onChange((value) => {
+        if (this.callbacks.onPresetOffsetChange) {
+          this.callbacks.onPresetOffsetChange();
+        }
+      });
+
+    this.controllers.presetOffsetY = offsetFolder
+      .add(this.params, "presetOffsetY", -10.0, 10.0, 0.01)
+      .name("Y")
+      .onChange((value) => {
+        if (this.callbacks.onPresetOffsetChange) {
+          this.callbacks.onPresetOffsetChange();
+        }
+      });
+
+    this.controllers.presetOffsetZ = offsetFolder
+      .add(this.params, "presetOffsetZ", -10.0, 10.0, 0.01)
+      .name("Z")
+      .onChange((value) => {
+        if (this.callbacks.onPresetOffsetChange) {
+          this.callbacks.onPresetOffsetChange();
+        }
+      });
+
+    offsetFolder.add(this.params, "resetPresetOffset").name("Reset Offset");
+
+    offsetFolder.open();
   }
 
   setupPositionControls() {
@@ -189,7 +183,16 @@ export class GUIManager {
     this.params.currentGlb = glbName;
   }
 
-  updateCurrentVideoFrame(frameIndex) {
-    this.params.currentVideoFrame = frameIndex;
+  // updateCurrentVideoFrame removed
+
+  // Refresh displayed values for specific controllers after programmatic param changes
+  updateDisplayFor(keys) {
+    if (!Array.isArray(keys)) return;
+    keys.forEach((key) => {
+      const controller = this.controllers && this.controllers[key];
+      if (controller && typeof controller.updateDisplay === 'function') {
+        controller.updateDisplay();
+      }
+    });
   }
 }
