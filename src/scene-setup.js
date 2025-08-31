@@ -15,6 +15,8 @@ export class SceneSetup {
     this.coloredBackgroundEnabled = false;
     this.coloredBackgroundColor = new THREE.Color(0x000000);
     this.onSurveyCompleted = null; // Callback for when survey is completed
+    this.allSurveyResults = []; // Aggregate of all survey payloads
+    this.surveyMetadataProvider = null; // Optional provider for extra context per submission
   }
 
   initialize() {
@@ -46,16 +48,25 @@ export class SceneSetup {
     this.createBackgroundSphere();
 
     // Add XR button
-    const sessionInit = {
+    this.sessionInit = {
       requiredFeatures: ["hand-tracking"],
+      optionalFeatures: ["local-floor", "bounded-floor", "local", "viewer", "layers"]
     };
-    document.body.appendChild(XRButton.createButton(this.renderer, sessionInit));
+    // Prefer local-floor when available
+    if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setReferenceSpaceType === 'function') {
+      this.renderer.xr.setReferenceSpaceType('local-floor');
+    }
+    document.body.appendChild(XRButton.createButton(this.renderer, this.sessionInit));
 
     // Setup XR event listeners
     this.setupXREvents();
 
     // Prepare survey overlay (hidden by default)
     this.createSurveyOverlay();
+
+    // Prepare welcome overlay and show it by default (hidden once XR starts)
+    this.createWelcomeOverlay();
+    this.showWelcomeOverlay();
 
     // Controls
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -67,6 +78,41 @@ export class SceneSetup {
 
     // Window resize handler
     window.addEventListener("resize", this.onWindowResize.bind(this), false);
+  }
+
+  async startXRSession() {
+    try {
+      if (navigator.xr && navigator.xr.requestSession) {
+        if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setReferenceSpaceType === 'function') {
+          this.renderer.xr.setReferenceSpaceType('local-floor');
+        }
+        const session = await navigator.xr.requestSession('immersive-vr', this.sessionInit || { requiredFeatures: ["hand-tracking"], optionalFeatures: ["local-floor", "local"] });
+        if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setSession === 'function') {
+          await this.renderer.xr.setSession(session);
+          return true;
+        }
+        return false;
+      } else {
+        console.warn('WebXR not available to start session programmatically');
+        return false;
+      }
+    } catch (e) {
+      // Fallback: try switching to 'local' reference space
+      try {
+        if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setReferenceSpaceType === 'function') {
+          this.renderer.xr.setReferenceSpaceType('local');
+        }
+        const fallbackInit = Object.assign({}, this.sessionInit || {}, { optionalFeatures: ["local", "viewer"] });
+        const session = await navigator.xr.requestSession('immersive-vr', fallbackInit);
+        if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setSession === 'function') {
+          await this.renderer.xr.setSession(session);
+          return true;
+        }
+      } catch (e2) {
+        console.warn('Failed to start XR session programmatically', e2);
+      }
+      return false;
+    }
   }
 
   createBackgroundSphere() {
@@ -85,6 +131,8 @@ export class SceneSetup {
   setupXREvents() {
     this.renderer.xr.addEventListener("sessionstart", () => {
       this.isInXRSession = true;
+      // Hide welcome overlay when entering XR
+      this.hideWelcomeOverlay();
       // In XR, control whether we see passthrough (transparent) or black background
       // If colored background is enabled, show it; otherwise fallback to black toggle
       if (this.coloredBackgroundEnabled) {
@@ -106,6 +154,70 @@ export class SceneSetup {
       // Show post-experience survey
       this.showSurveyOverlay();
     });
+  }
+
+  createWelcomeOverlay() {
+    if (this.welcomeOverlay) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'welcome-overlay';
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '100vw',
+      height: '100vh',
+      background: 'rgba(0,0,0,0.3)',
+      color: '#fff',
+      display: 'none',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: '900',
+      fontFamily: 'Arial, sans-serif',
+      pointerEvents: 'none'
+    });
+
+    const panel = document.createElement('div');
+    Object.assign(panel.style, {
+      background: 'rgba(44,62,80,0.95)',
+      borderRadius: '12px',
+      padding: '24px',
+      maxWidth: '720px',
+      width: '85%',
+      textAlign: 'center',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+      border: '2px solid #3498db',
+      pointerEvents: 'auto',
+      position: 'relative'
+    });
+
+    const title = document.createElement('h1');
+    title.textContent = 'Welcome to the experiment';
+    title.style.marginTop = '0';
+    title.style.color = '#3498db';
+    title.style.fontSize = '2em';
+    title.style.fontWeight = 'bold';
+
+    const message = document.createElement('p');
+    message.textContent = ' [EXPLANATION HERE]. Press Start XR to start the experiment.';
+    message.style.fontSize = '1.1em';
+    message.style.margin = '12px 0 0 0';
+    message.style.color = '#ecf0f1';
+
+    panel.appendChild(title);
+    panel.appendChild(message);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    this.welcomeOverlay = overlay;
+  }
+
+  showWelcomeOverlay() {
+    if (!this.welcomeOverlay) this.createWelcomeOverlay();
+    if (this.welcomeOverlay) this.welcomeOverlay.style.display = 'flex';
+  }
+
+  hideWelcomeOverlay() {
+    if (this.welcomeOverlay) this.welcomeOverlay.style.display = 'none';
   }
 
   endXRSession() {
@@ -317,26 +429,19 @@ export class SceneSetup {
           timestamp: new Date().toISOString(),
           survey: results
         };
-        console.log('[Survey] Payload ready', payload);
+        // Attach optional context (e.g., folder, model) if provider is set
+        try {
+          if (typeof this.surveyMetadataProvider === 'function') {
+            const context = this.surveyMetadataProvider();
+            if (context && typeof context === 'object') {
+              payload.context = context;
+            }
+          }
+        } catch (_) {}
+        console.log('[Survey] Payload ready (aggregated, no immediate download)');
 
-        // Trigger JSON download
-        const json = JSON.stringify(payload, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        const ts = new Date()
-          .toISOString()
-          .replace(/[:.]/g, '-')
-          .replace('T', '_')
-          .replace('Z', 'Z');
-        a.href = url;
-        a.download = `survey-${ts}.json`;
-        document.body.appendChild(a);
-        console.log('[Survey] Initiating download', a.download);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        console.log('[Survey] Download completed');
+        // Aggregate instead of per-form download
+        this.allSurveyResults.push(payload);
 
         // Call the survey completed callback if set
         if (this.onSurveyCompleted) {
@@ -723,6 +828,39 @@ export class SceneSetup {
 
   setSurveyCompletedCallback(callback) {
     this.onSurveyCompleted = callback;
+  }
+
+  setSurveyMetadataProvider(provider) {
+    this.surveyMetadataProvider = provider;
+  }
+
+  downloadAllSurveyResults() {
+    try {
+      const payload = {
+        timestamp: new Date().toISOString(),
+        count: this.allSurveyResults.length,
+        submissions: this.allSurveyResults
+      };
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const ts = new Date()
+        .toISOString()
+        .replace(/[:.]/g, '-')
+        .replace('T', '_')
+        .replace('Z', 'Z');
+      a.href = url;
+      a.download = `survey-all-${ts}.json`;
+      document.body.appendChild(a);
+      console.log('[Survey] Initiating final download', a.download);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      console.log('[Survey] Final download completed');
+    } catch (e) {
+      console.warn('[Survey] Failed to download aggregated results', e);
+    }
   }
 
   clearSurveyForm() {

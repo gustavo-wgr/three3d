@@ -11,6 +11,7 @@ export class PointcloudManager {
     this.clock = new THREE.Clock();
     this.baseRotationX = 0;
     this.currentGlbUrl = null; // Store current GLB URL for rotation logic
+    this.mirrorZ = false; // Whether to mirror the model along Z
     // Morphing state
     this.morphFromPositions = null;
     this.morphToPositions = null;
@@ -192,6 +193,11 @@ export class PointcloudManager {
   updatePointCloudSampling(rate, params, position = { x: 0, y: 2.1, z: -3 }) {
     if (!this.originalGeometry) return;
 
+    // Update mirror flag from params if provided
+    if (params && typeof params.mirrorZ === 'boolean') {
+      this.mirrorZ = !!params.mirrorZ;
+    }
+
     const existingGeometry = this.pointCloud ? this.pointCloud.geometry : null;
     const newGeometry = existingGeometry || new THREE.BufferGeometry();
 
@@ -270,13 +276,10 @@ export class PointcloudManager {
       this.pointCloud = new THREE.Points(newGeometry, this.pointCloudMaterial);
       this.pointCloud.position.set(position.x, position.y, position.z);
       const initialScale = (params && typeof params.modelScale === 'number') ? params.modelScale : 1.0;
-      this.pointCloud.scale.set(initialScale, initialScale, initialScale);
-      this.pointCloud.rotation.set(0, 0, 0);
-      // Ensure model faces +Z (rotate 180 degrees around Y) - only for unik3d models
-      if (this.currentGlbUrl && this.currentGlbUrl.includes('unik3d')) {
-        this.pointCloud.rotation.y = Math.PI;
-        console.log(`Applied 180° Y-axis rotation to unik3d model: ${this.currentGlbUrl}`);
-      }
+      // Apply mirror on Z if enabled
+      const initialZScale = this.mirrorZ ? -initialScale : initialScale;
+      this.pointCloud.scale.set(initialScale, initialScale, initialZScale);
+      this.pointCloud.rotation.set(0, (params && typeof params.initialYawRadians === 'number') ? params.initialYawRadians : 0, 0);
       this.baseRotationX = this.pointCloud.rotation.x || 0;
       // Apply initial flip state if requested
       if (params && params.flipUpsideDown) {
@@ -364,7 +367,8 @@ export class PointcloudManager {
 
   updatePointCloudScale(scale) {
     if (this.pointCloud && typeof scale === 'number' && isFinite(scale)) {
-      this.pointCloud.scale.set(scale, scale, scale);
+      const zScale = this.mirrorZ ? -scale : scale;
+      this.pointCloud.scale.set(scale, scale, zScale);
     }
   }
 
@@ -412,5 +416,14 @@ export class PointcloudManager {
       this.baseRotationX = this.pointCloud.rotation.x || 0;
     }
     this.pointCloud.rotation.x = this.baseRotationX + (enabled ? Math.PI : 0);
+  }
+
+  setMirrorZ(enabled) {
+    this.mirrorZ = !!enabled;
+    if (this.pointCloud) {
+      // Preserve the absolute magnitude of the current Z scale when toggling
+      const currentAbsZ = Math.abs(this.pointCloud.scale.z || 1);
+      this.pointCloud.scale.z = this.mirrorZ ? -currentAbsZ : currentAbsZ;
+    }
   }
 }

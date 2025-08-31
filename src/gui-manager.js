@@ -120,6 +120,16 @@ export class GUIManager {
         }
       });
 
+    // Mirror Z toggle
+    glbFolder
+      .add(this.params, "mirrorZ")
+      .name("Mirror Z")
+      .onChange((value) => {
+        if (this.callbacks.onMirrorZToggle) {
+          this.callbacks.onMirrorZToggle(value);
+        }
+      });
+
     // Expand the folder by default
     glbFolder.open();
   }

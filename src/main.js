@@ -12,12 +12,27 @@ export class MainApplication {
     this.modelPosition = { x: 0, y: 2.1, z: -3 };
     this.baseModelPosition = { x: 0, y: 2.1, z: -3 };
     
+    // Ordered XR folder sequence
+    this.folderSequence = [
+      'moge-long',
+      'moge-medium',
+      'moge-short',
+      'uni-long',
+      'uni-medium',
+      'uni-short',
+      'vggt-long',
+      'vggt-medium',
+      'vggt-short'
+    ];
+    this.currentFolderIndex = 0;
+    
     // State variables
-    this.selectedFolder = 'unik3d';
+    this.selectedFolder = this.folderSequence[0];
     this.glbFiles = [];
     this.currentGlbIndex = 0;
     this.autoSwitchEnabled = true;
-    this.autoSwitchDelayMs = 2000;
+    // 10s per model
+    this.autoSwitchDelayMs = 1000;
     this.autoSwitchTimer = null;
     
     // Parameters for GUI
@@ -26,6 +41,9 @@ export class MainApplication {
       subsampleRate: 0.06,
       modelScale: 1.0,
       flipUpsideDown: false,
+      mirrorZ: false,
+      // New: initial yaw rotation for facing camera without mirroring
+      initialYawRadians: 0.0,
       xrBlackBackground: false,
       coloredBackground: false,
       backgroundColorPicker: '#0a0a0a',
@@ -86,14 +104,21 @@ export class MainApplication {
     // Setup XR event listeners for auto-switch
     this.setupXREventListeners();
 
+    // Provide metadata for each survey submission
+    this.sceneSetup.setSurveyMetadataProvider(() => ({
+      folder: this.selectedFolder,
+      model: this.params.currentGlb,
+      modelIndex: this.currentGlbIndex,
+      sequenceIndex: this.currentFolderIndex
+    }));
     // Setup survey completed callback to handle phase transitions
     this.sceneSetup.setSurveyCompletedCallback(() => this.handleSurveyCompletion());
 
     // Keyboard listener for quick actions
     document.addEventListener('keydown', this.onKeyDown);
 
-    // Initialize with default folder
-    this.glbFiles = getModelUrls(this.selectedFolder);
+    // Initialize with default folder (limit to 3 models)
+    this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
     this.params.currentGlb = this.glbFiles[0];
 
     // Load initial model
@@ -191,7 +216,7 @@ export class MainApplication {
       },
       onFolderChange: (value) => {
         this.selectedFolder = value;
-        this.glbFiles = getModelUrls(this.selectedFolder);
+        this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
         this.currentGlbIndex = 0;
         this.params.currentGlb = this.glbFiles[0];
         this.loadGlbModel(this.glbFiles[this.currentGlbIndex]);
@@ -239,6 +264,12 @@ export class MainApplication {
       onFlipToggle: (value) => {
         if (this.pointcloudManager) {
           this.pointcloudManager.setFlipUpsideDown(!!value);
+        }
+      }
+      ,
+      onMirrorZToggle: (value) => {
+        if (this.pointcloudManager) {
+          this.pointcloudManager.setMirrorZ(!!value);
         }
       }
       ,
@@ -293,10 +324,24 @@ export class MainApplication {
         if (isFinite(renderPreset.modelScale)) {
           this.params.modelScale = renderPreset.modelScale;
         }
+        if (typeof renderPreset.flipUpsideDown === 'boolean') {
+          this.params.flipUpsideDown = !!renderPreset.flipUpsideDown;
+        }
+        if (typeof renderPreset.mirrorZ === 'boolean') {
+          this.params.mirrorZ = !!renderPreset.mirrorZ;
+        }
+        // Apply orientation preset without mirroring
+        if (renderPreset.faceCamera === true) {
+          this.params.initialYawRadians = Math.PI; // 180° yaw
+        } else if (isFinite(renderPreset.yawDegrees)) {
+          this.params.initialYawRadians = Number(renderPreset.yawDegrees) * Math.PI / 180.0;
+        } else {
+          this.params.initialYawRadians = 0.0;
+        }
 
         // Refresh GUI controls to reflect updated preset values
         if (this.guiManager && typeof this.guiManager.updateDisplayFor === 'function') {
-          this.guiManager.updateDisplayFor(['pointSize', 'subsampleRate', 'modelScale']);
+          this.guiManager.updateDisplayFor(['pointSize', 'subsampleRate', 'modelScale', 'flipUpsideDown', 'mirrorZ']);
         }
       }
     } catch (e) {
@@ -311,6 +356,8 @@ export class MainApplication {
 
       // Apply current flip upside down setting
       this.pointcloudManager.setFlipUpsideDown(this.params.flipUpsideDown);
+      // Apply current mirror Z setting
+      this.pointcloudManager.setMirrorZ(this.params.mirrorZ);
 
       // If colored background is enabled, update background color using lowest-Z color
       if (this.params.coloredBackground && this.sceneSetup) {
@@ -357,11 +404,15 @@ export class MainApplication {
   }
 
   switchFolder() {
-    this.selectedFolder = this.selectedFolder === 'unik3d' ? 'vggt' : 'unik3d';
+    // Cycle through the predefined sequence
+    const idx = this.folderSequence.indexOf(this.selectedFolder);
+    const nextIdx = (idx >= 0 ? (idx + 1) : this.currentFolderIndex + 1) % this.folderSequence.length;
+    this.currentFolderIndex = nextIdx;
+    this.selectedFolder = this.folderSequence[this.currentFolderIndex];
     this.params.selectedFolder = this.selectedFolder;
 
-    // Auto-enable flip upside down and adjust settings when switching to vggt folder
-    if (this.selectedFolder === 'vggt') {
+    // Auto-enable flip upside down and adjust settings when switching to any vggt* folder
+    if (this.selectedFolder.startsWith('vggt')) {
       this.params.flipUpsideDown = true;
       this.params.subsampleRate = 1.0;
       this.params.pointSize = 0.003;
@@ -373,8 +424,8 @@ export class MainApplication {
       if (this.callbacks.onSubsampleRateChange) {
         this.callbacks.onSubsampleRateChange(1.0);
       }
-
-      console.log('Auto-enabled flip upside down and adjusted sampling rate to 1.0, point size to 0.003 for vggt folder');
+      
+      console.log('Auto-enabled flip upside down and adjusted sampling rate to 1.0, point size to 0.003 for vggt* folder');
     } else {
       this.params.flipUpsideDown = false;
       this.params.subsampleRate = 0.06; // Reset to default
@@ -387,11 +438,11 @@ export class MainApplication {
       if (this.callbacks.onSubsampleRateChange) {
         this.callbacks.onSubsampleRateChange(0.06);
       }
-
-      console.log('Disabled flip upside down and reset to default settings for unik3d folder');
+      
+      console.log('Disabled flip upside down and reset to default settings for non-vggt folders');
     }
 
-    this.glbFiles = getModelUrls(this.selectedFolder);
+    this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
     this.currentGlbIndex = 0;
     this.params.currentGlb = this.glbFiles[0];
     this.loadGlbModel(this.glbFiles[this.currentGlbIndex]);
@@ -399,50 +450,67 @@ export class MainApplication {
 
   handleSurveyCompletion() {
     console.log('Survey completed - checking which phase finished');
-
-    // Check which folder was just completed
-    if (this.selectedFolder === 'unik3d') {
-      // Phase 1 completed - switch to vggt and show phase 1 message
-      console.log('Phase 1 completed - switching to vggt folder');
-      this.selectedFolder = 'vggt';
+    
+    // Advance to the next folder in the sequence, or finish when done
+    const isLastFolder = this.currentFolderIndex >= this.folderSequence.length - 1;
+    if (!isLastFolder) {
+      this.currentFolderIndex += 1;
+      this.selectedFolder = this.folderSequence[this.currentFolderIndex];
       this.params.selectedFolder = this.selectedFolder;
 
-      // Auto-enable flip upside down when switching to vggt folder
-      this.params.flipUpsideDown = true;
-      // Set sampling rate to 1 (100% of points) and point size to 0.003 for vggt folder
-      this.params.subsampleRate = 1.0;
-      this.params.pointSize = 0.003;
-
-      // Apply the changes immediately
-      if (this.callbacks.onPointSizeChange) {
-        this.callbacks.onPointSizeChange(0.003);
+      // Apply folder-specific settings (vggt*)
+      if (this.selectedFolder.startsWith('vggt')) {
+        this.params.flipUpsideDown = true;
+        this.params.subsampleRate = 1.0;
+        this.params.pointSize = 0.003;
+        if (this.callbacks.onPointSizeChange) {
+          this.callbacks.onPointSizeChange(0.003);
+        }
+        if (this.callbacks.onSubsampleRateChange) {
+          this.callbacks.onSubsampleRateChange(1.0);
+        }
+      } else {
+        this.params.flipUpsideDown = false;
+        this.params.subsampleRate = 0.06;
+        this.params.pointSize = 0.006;
+        if (this.callbacks.onPointSizeChange) {
+          this.callbacks.onPointSizeChange(0.006);
+        }
+        if (this.callbacks.onSubsampleRateChange) {
+          this.callbacks.onSubsampleRateChange(0.06);
+        }
       }
-      if (this.callbacks.onSubsampleRateChange) {
-        this.callbacks.onSubsampleRateChange(1.0);
-      }
 
-      console.log('Auto-enabled flip upside down and adjusted sampling rate to 1.0, point size to 0.003 for vggt folder after survey completion');
-
-      this.glbFiles = getModelUrls(this.selectedFolder);
+      this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
       this.currentGlbIndex = 0;
       this.params.currentGlb = this.glbFiles[0];
-      // Do not load next model yet; wait until user starts XR again
+
+      // Clear any current model
       if (this.pointcloudManager && typeof this.pointcloudManager.clearPointCloud === 'function') {
         this.pointcloudManager.clearPointCloud();
       }
 
-      // Show phase 1 finished message immediately
-      this.sceneSetup.showPhase1FinishedOverlay();
-    } else if (this.selectedFolder === 'vggt') {
-      // Phase 2 completed - show thank you message
-      console.log('Phase 2 completed - showing thank you message');
-      // Clear any remaining model from the scene
+      // Immediately start XR for the next folder; if blocked, show the prompt overlay
+      if (this.sceneSetup && typeof this.sceneSetup.startXRSession === 'function') {
+        Promise.resolve(this.sceneSetup.startXRSession()).then((ok) => {
+          if (!ok && this.sceneSetup && typeof this.sceneSetup.showPhase1FinishedOverlay === 'function') {
+            this.sceneSetup.showPhase1FinishedOverlay();
+          }
+        });
+      }
+    } else {
+      // Last folder finished - show thank you message
+      console.log('All folders completed - showing thank you message');
       if (this.pointcloudManager && typeof this.pointcloudManager.clearPointCloud === 'function') {
         this.pointcloudManager.clearPointCloud();
+      }
+      // Trigger final aggregated survey download
+      if (this.sceneSetup && typeof this.sceneSetup.downloadAllSurveyResults === 'function') {
+        this.sceneSetup.downloadAllSurveyResults();
       }
       setTimeout(() => {
         this.sceneSetup.showThankYouOverlay();
-      }, 500); // Shorter delay since no folder switching needed
+      }, 500);
     }
   }
 
