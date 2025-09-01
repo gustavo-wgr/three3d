@@ -13,8 +13,9 @@ const config = {
                  window.location.hostname.includes('localhost')
 };
 
-// Desired folder order for the study
+// Desired folder order for UI lists (Experiment flow is controlled elsewhere)
 const folderOrder = [
+  'train',
   'moge-long', 'moge-medium', 'moge-short',
   'uni-long', 'uni-medium', 'uni-short',
   'vggt-long', 'vggt-medium', 'vggt-short'
@@ -23,6 +24,9 @@ const folderOrder = [
 // Explicit model lists (used as fallback for production builds)
 // Paths are relative to each folder
 const modelFolders = {
+  'train': [
+    '13.glb','15_subsampled.glb','15.glb','17.glb','19.glb','20.glb','23.glb','7.glb','pointcloud(11).glb'
+  ],
   'moge-long': [
     '2.glb','5.glb','6.glb','8.glb','9.glb','11.glb','12.glb','13.glb','15.glb','18.glb'
   ],
@@ -187,6 +191,10 @@ const modelPositionPresets = {
 // Allows overriding default point size, sample rate, and model scale per GLB file
 // Keys are per-folder
 const modelRenderPresets = {
+  'train': {
+    '7.glb': { pointSize: 0.02, subsampleRate: 0.4, modelScale: 0.8, backgroundColor: '#282828', faceCamera: true },
+    '13.glb': { flipUpsideDown: true, pointSize: 0.003, subsampleRate: 1.0, modelScale: 1.0, backgroundColor: '#797f79' },
+  },
   'uni-long': {
     '1_subsampled.glb': { pointSize: 0.006, subsampleRate: 1.0, modelScale: 0.5, backgroundColor: '#7f5a5a' },
     '2_subsampled.glb': { pointSize: 0.006, subsampleRate: 1.0, modelScale: 0.01, backgroundColor: '#8c8c8c', faceCamera: true },

@@ -1,5 +1,8 @@
 import * as THREE from "three";
 import { SceneSetup } from "./scene-setup.js";
+import { DataCollector } from "./DataCollector.js";
+import { UIOverlayManager } from "./UIOverlayManager.js";
+import { ExperimentController } from "./ExperimentController.js";
 import { PointcloudManager } from "./pointcloud-manager.js";
 import { GUIManager } from "./gui-manager.js";
 import { getModelUrls, getAvailableFolders, getModelPositionPreset, getModelRenderPreset } from "./config.js";
@@ -14,6 +17,7 @@ export class MainApplication {
     
     // Ordered XR folder sequence
     this.folderSequence = [
+      'train',
       'moge-long',
       'moge-medium',
       'moge-short',
@@ -51,8 +55,8 @@ export class MainApplication {
       currentGlb: '',
       availableFolders: getAvailableFolders(),
       toggleBackground: () => this.sceneSetup.toggleBackground(),
-      switchToNextGlb: () => this.switchToNextGlb(),
-      switchFolder: () => this.switchFolder(),
+      switchToNextGlb: () => this.controller && this.controller.switchToNextGlb(),
+      switchFolder: () => this.controller && this.controller.switchFolder(),
       autoSwitch: this.autoSwitchEnabled,
       // Positioning
       positionStep: 0.1,
@@ -84,14 +88,17 @@ export class MainApplication {
 
     // Bind handlers
     this.onKeyDown = this.onKeyDown.bind(this);
-    this.onXRSessionStart = this.onXRSessionStart.bind(this);
-    this.onXRSessionEnd = this.onXRSessionEnd.bind(this);
   }
 
   async initialize() {
     // Initialize scene setup
     this.sceneSetup = new SceneSetup();
     this.sceneSetup.initialize();
+
+    // Data collection and overlays
+    this.dataCollector = new DataCollector();
+    this.sceneSetup.setDataCollector(this.dataCollector);
+    this.ui = new UIOverlayManager(this.sceneSetup);
 
     // Initialize pointcloud manager
     this.pointcloudManager = new PointcloudManager(this.sceneSetup.scene);
@@ -103,28 +110,37 @@ export class MainApplication {
     this.guiManager = new GUIManager(gui, this.params, this.callbacks);
     this.guiManager.setupGUI();
 
-    // Setup XR event listeners for auto-switch
-    this.setupXREventListeners();
+    // Controller: orchestrates XR flow and sequencing
+    this.controller = new ExperimentController({
+      sceneSetup: this.sceneSetup,
+      pointcloudManager: this.pointcloudManager,
+      params: this.params,
+      guiUpdate: (fields) => {
+        if (this.guiManager && typeof this.guiManager.updateDisplayFor === 'function') {
+          this.guiManager.updateDisplayFor(fields);
+        }
+      },
+      folderSequence: this.folderSequence,
+      autoSwitchDelayMs: this.autoSwitchDelayMs
+    });
+    this.controller.initialize();
 
-    // Provide metadata for each survey submission
+    // Provide metadata for each survey submission (use controller indices)
     this.sceneSetup.setSurveyMetadataProvider(() => ({
-      folder: this.selectedFolder,
+      folder: (this.controller && this.controller.selectedFolder) || this.selectedFolder,
       model: this.params.currentGlb,
-      modelIndex: this.currentGlbIndex,
-      sequenceIndex: this.currentFolderIndex
+      modelIndex: (this.controller && this.controller.currentGlbIndex) || this.currentGlbIndex,
+      sequenceIndex: (this.controller && this.controller.currentFolderIndex) || this.currentFolderIndex
     }));
-    // Setup survey completed callback to handle phase transitions
-    this.sceneSetup.setSurveyCompletedCallback(() => this.handleSurveyCompletion());
 
     // Keyboard listener for quick actions
     document.addEventListener('keydown', this.onKeyDown);
 
-    // Initialize with default folder (limit to 3 models)
-    this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
-    this.params.currentGlb = this.glbFiles[0];
+    // Controller handles initial model load
 
-    // Load initial model
-    this.loadGlbModel(this.glbFiles[this.currentGlbIndex]);
+    // Update GUI param actions to delegate to controller
+    this.params.switchToNextGlb = () => this.controller && this.controller.switchToNextGlb();
+    this.params.switchFolder = () => this.controller && this.controller.switchFolder();
 
     // Start animation loop
     this.animate();
@@ -155,55 +171,7 @@ export class MainApplication {
     }
   }
 
-  setupXREventListeners() {
-    // Listen for XR session start to activate auto-switch
-    this.sceneSetup.renderer.xr.addEventListener("sessionstart", this.onXRSessionStart);
-
-    // Listen for XR session end to deactivate auto-switch
-    this.sceneSetup.renderer.xr.addEventListener("sessionend", this.onXRSessionEnd);
-  }
-
-  startAutoSwitchTimer() {
-    // Clear any existing timer first
-    if (this.autoSwitchTimer) {
-      clearTimeout(this.autoSwitchTimer);
-    }
-    this.autoSwitchTimer = setTimeout(() => {
-      this.switchToNextGlb();
-    }, this.autoSwitchDelayMs);
-    console.log("Auto-switch timer started");
-  }
-
-  onXRSessionStart() {
-    console.log("XR session started - checking auto-switch");
-    // Hide completion overlays since user is entering VR
-    this.sceneSetup.hidePhase1FinishedOverlay();
-    this.sceneSetup.hideThankYouOverlay();
-
-    // If no model is currently loaded, lazily load the first one for this phase
-    const hasPointCloud = this.pointcloudManager && this.pointcloudManager.getPointCloud && this.pointcloudManager.getPointCloud();
-    if (!hasPointCloud && this.glbFiles.length > 0) {
-      this.loadGlbModel(this.glbFiles[this.currentGlbIndex]);
-    }
-
-    // Start auto-switch timer if enabled and we have models
-    if (this.autoSwitchEnabled && this.glbFiles.length > 0) {
-      this.startAutoSwitchTimer();
-    }
-  }
-
-  onXRSessionEnd() {
-    console.log("XR session ended - clearing auto-switch timer");
-    // Clear auto-switch timer when leaving VR
-    if (this.autoSwitchTimer) {
-      clearTimeout(this.autoSwitchTimer);
-      this.autoSwitchTimer = null;
-    }
-    // Clear any currently displayed model so survey overlay shows without background content
-    if (this.pointcloudManager && typeof this.pointcloudManager.clearPointCloud === 'function') {
-      this.pointcloudManager.clearPointCloud();
-    }
-  }
+  // XR events and auto-switch are managed by ExperimentController
 
   onKeyDown(event) {
     if (!event || !event.key) return;
@@ -316,230 +284,17 @@ export class MainApplication {
     };
   }
 
-  loadGlbModel(glbUrl) {
-    // Apply per-model preset position if defined
-    try {
-      const urlParts = glbUrl.split('/');
-      const fileName = urlParts[urlParts.length - 1];
-      const preset = getModelPositionPreset(this.selectedFolder, fileName);
-      if (preset && isFinite(preset.x) && isFinite(preset.y) && isFinite(preset.z)) {
-        this.baseModelPosition = { x: preset.x, y: preset.y, z: preset.z };
-      }
-      else {
-        this.baseModelPosition = { x: 0, y: 2.1, z: -3 };
-      }
-
-      // Apply preset offsets to compute final model position
-      const offsetX = this.params.presetOffsetX || 0;
-      const offsetY = this.params.presetOffsetY || 0;
-      const offsetZ = this.params.presetOffsetZ || 0;
-      this.modelPosition = {
-        x: this.baseModelPosition.x + offsetX,
-        y: this.baseModelPosition.y + offsetY,
-        z: this.baseModelPosition.z + offsetZ
-      };
-
-      // Apply per-model render presets if defined
-      const renderPreset = getModelRenderPreset(this.selectedFolder, fileName);
-      if (renderPreset && typeof renderPreset === 'object') {
-        if (isFinite(renderPreset.pointSize)) {
-          this.params.pointSize = renderPreset.pointSize;
-        }
-        if (isFinite(renderPreset.subsampleRate)) {
-          this.params.subsampleRate = renderPreset.subsampleRate;
-        }
-        if (isFinite(renderPreset.modelScale)) {
-          this.params.modelScale = renderPreset.modelScale;
-        }
-        if (typeof renderPreset.flipUpsideDown === 'boolean') {
-          this.params.flipUpsideDown = !!renderPreset.flipUpsideDown;
-        }
-        if (typeof renderPreset.mirrorZ === 'boolean') {
-          this.params.mirrorZ = !!renderPreset.mirrorZ;
-        }
-        // Apply orientation preset without mirroring
-        if (renderPreset.faceCamera === true) {
-          this.params.initialYawRadians = Math.PI; // 180° yaw
-        } else if (isFinite(renderPreset.yawDegrees)) {
-          this.params.initialYawRadians = Number(renderPreset.yawDegrees) * Math.PI / 180.0;
-        } else {
-          this.params.initialYawRadians = 0.0;
-        }
-
-        // Refresh GUI controls to reflect updated preset values
-        if (this.guiManager && typeof this.guiManager.updateDisplayFor === 'function') {
-          this.guiManager.updateDisplayFor(['pointSize', 'subsampleRate', 'modelScale', 'flipUpsideDown', 'mirrorZ']);
-        }
-      }
-    } catch (e) {
-      // Non-fatal: fall back to current position
-      console.warn('Preset position check failed for', glbUrl, e);
-    }
-
-    this.pointcloudManager.loadGlbModel(glbUrl, this.params, (pointCloud, frameIndex) => {
-      // Callback when model is loaded
-      const position = this.modelPosition;
-      this.pointcloudManager.updatePointCloudPosition(position.x, position.y, position.z);
-
-      // Apply current flip upside down setting
-      this.pointcloudManager.setFlipUpsideDown(this.params.flipUpsideDown);
-      // Apply current mirror Z setting
-      this.pointcloudManager.setMirrorZ(this.params.mirrorZ);
-
-      // If colored background is enabled, update background color using lowest-Z color
-      if (this.params.coloredBackground && this.sceneSetup) {
-        try {
-          const urlParts = (this.params.currentGlb || '').split('/');
-          const fileName = urlParts[urlParts.length - 1];
-          const preset = getModelRenderPreset(this.selectedFolder, fileName);
-          const bg = preset && preset.backgroundColor;
-          this.sceneSetup.setColoredBackgroundEnabled(true, bg);
-        } catch (e) {
-          // Non-fatal
-        }
-      }
-
-      // Start or reset auto-switch timer after model is displayed (only in VR)
-      if (this.autoSwitchTimer) {
-        clearTimeout(this.autoSwitchTimer);
-      }
-      if (this.autoSwitchEnabled && this.sceneSetup.isInXRSession) {
-        this.startAutoSwitchTimer();
-      }
-    });
-  }
+  // Model loading is managed by ExperimentController
 
   updatePointCloudSampling(rate) {
     this.pointcloudManager.updatePointCloudSampling(rate, this.params, this.modelPosition);
   }
 
-  switchToNextGlb() {
-    const atEnd = this.currentGlbIndex >= this.glbFiles.length - 1;
-    if (atEnd) {
-      // At end: if in XR, end session; otherwise wrap to first
-      if (this.sceneSetup && this.sceneSetup.renderer && this.sceneSetup.renderer.xr && this.sceneSetup.renderer.xr.isPresenting) {
-        this.sceneSetup.endXRSession && this.sceneSetup.endXRSession();
-        return;
-      } else {
-        this.currentGlbIndex = 0;
-      }
-    } else {
-      this.currentGlbIndex += 1;
-    }
-    this.params.currentGlb = this.glbFiles[this.currentGlbIndex];
-    this.loadGlbModel(this.params.currentGlb);
-  }
+  // Sequencing is managed by ExperimentController
 
-  switchFolder() {
-    // Cycle through the predefined sequence
-    const idx = this.folderSequence.indexOf(this.selectedFolder);
-    const nextIdx = (idx >= 0 ? (idx + 1) : this.currentFolderIndex + 1) % this.folderSequence.length;
-    this.currentFolderIndex = nextIdx;
-    this.selectedFolder = this.folderSequence[this.currentFolderIndex];
-    this.params.selectedFolder = this.selectedFolder;
+  // Folder switching is managed by ExperimentController
 
-    // Auto-enable flip upside down and adjust settings when switching to any vggt* folder
-    if (this.selectedFolder.startsWith('vggt')) {
-      this.params.flipUpsideDown = true;
-      this.params.subsampleRate = 1.0;
-      this.params.pointSize = 0.003;
-
-      // Apply the changes immediately
-      if (this.callbacks.onPointSizeChange) {
-        this.callbacks.onPointSizeChange(0.003);
-      }
-      if (this.callbacks.onSubsampleRateChange) {
-        this.callbacks.onSubsampleRateChange(1.0);
-      }
-      
-      console.log('Auto-enabled flip upside down and adjusted sampling rate to 1.0, point size to 0.003 for vggt* folder');
-    } else {
-      this.params.flipUpsideDown = false;
-      this.params.subsampleRate = 0.06; // Reset to default
-      this.params.pointSize = 0.006;    // Reset to default
-
-      // Apply the changes immediately
-      if (this.callbacks.onPointSizeChange) {
-        this.callbacks.onPointSizeChange(0.006);
-      }
-      if (this.callbacks.onSubsampleRateChange) {
-        this.callbacks.onSubsampleRateChange(0.06);
-      }
-      
-      console.log('Disabled flip upside down and reset to default settings for non-vggt folders');
-    }
-
-    this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
-    this.currentGlbIndex = 0;
-    this.params.currentGlb = this.glbFiles[0];
-    this.loadGlbModel(this.glbFiles[this.currentGlbIndex]);
-  }
-
-  handleSurveyCompletion() {
-    console.log('Survey completed - checking which phase finished');
-    
-    // Advance to the next folder in the sequence, or finish when done
-    const isLastFolder = this.currentFolderIndex >= this.folderSequence.length - 1;
-    if (!isLastFolder) {
-      this.currentFolderIndex += 1;
-      this.selectedFolder = this.folderSequence[this.currentFolderIndex];
-      this.params.selectedFolder = this.selectedFolder;
-
-      // Apply folder-specific settings (vggt*)
-      if (this.selectedFolder.startsWith('vggt')) {
-        this.params.flipUpsideDown = true;
-        this.params.subsampleRate = 1.0;
-        this.params.pointSize = 0.003;
-        if (this.callbacks.onPointSizeChange) {
-          this.callbacks.onPointSizeChange(0.003);
-        }
-        if (this.callbacks.onSubsampleRateChange) {
-          this.callbacks.onSubsampleRateChange(1.0);
-        }
-      } else {
-        this.params.flipUpsideDown = false;
-        this.params.subsampleRate = 0.06;
-        this.params.pointSize = 0.006;
-        if (this.callbacks.onPointSizeChange) {
-          this.callbacks.onPointSizeChange(0.006);
-        }
-        if (this.callbacks.onSubsampleRateChange) {
-          this.callbacks.onSubsampleRateChange(0.06);
-        }
-      }
-
-      this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
-      this.currentGlbIndex = 0;
-      this.params.currentGlb = this.glbFiles[0];
-
-      // Clear any current model
-      if (this.pointcloudManager && typeof this.pointcloudManager.clearPointCloud === 'function') {
-        this.pointcloudManager.clearPointCloud();
-      }
-
-      // Immediately start XR for the next folder; if blocked, show the prompt overlay
-      if (this.sceneSetup && typeof this.sceneSetup.startXRSession === 'function') {
-        Promise.resolve(this.sceneSetup.startXRSession()).then((ok) => {
-          if (!ok && this.sceneSetup && typeof this.sceneSetup.showPhase1FinishedOverlay === 'function') {
-            this.sceneSetup.showPhase1FinishedOverlay();
-          }
-        });
-      }
-    } else {
-      // Last folder finished - show thank you message
-      console.log('All folders completed - showing thank you message');
-      if (this.pointcloudManager && typeof this.pointcloudManager.clearPointCloud === 'function') {
-        this.pointcloudManager.clearPointCloud();
-      }
-      // Trigger final aggregated survey download
-      if (this.sceneSetup && typeof this.sceneSetup.downloadAllSurveyResults === 'function') {
-        this.sceneSetup.downloadAllSurveyResults();
-      }
-      setTimeout(() => {
-        this.sceneSetup.showThankYouOverlay();
-      }, 500);
-    }
-  }
+  // Survey completion is managed by ExperimentController
 
 
   animate() {
