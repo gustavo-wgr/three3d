@@ -110,6 +110,9 @@ export class GUIManager {
     // Add button to switch to next GLB
     glbFolder.add(this.params, "switchToNextGlb").name("Switch to Next GLB");
 
+    // Debug: Log current configuration for VR presets
+    glbFolder.add(this.params, "logCurrentConfig").name("Log Current Config");
+
     // Flip upside down toggle
     glbFolder
       .add(this.params, "flipUpsideDown")

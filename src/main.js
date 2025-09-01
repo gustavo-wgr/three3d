@@ -78,6 +78,8 @@ export class MainApplication {
           this.callbacks.onPresetOffsetChange();
         }
       },
+      // Debug utility: log current rendering and position configuration
+      logCurrentConfig: () => this.logCurrentConfig(),
     };
 
     // Bind handlers
@@ -126,6 +128,31 @@ export class MainApplication {
 
     // Start animation loop
     this.animate();
+  }
+
+  logCurrentConfig() {
+    try {
+      const pointSize = this.pointcloudManager && this.pointcloudManager.getMaterial ? (this.pointcloudManager.getMaterial()?.uniforms?.pointSize?.value) : this.params.pointSize;
+      const subsampleRate = this.params.subsampleRate;
+      const scale = this.params.modelScale;
+      const pos = this.modelPosition;
+      const currentGlb = this.params.currentGlb || '';
+      const folder = this.selectedFolder || '';
+      const msg = {
+        folder,
+        currentGlb,
+        pointSize,
+        subsampleRate,
+        modelScale: scale,
+        position: { x: pos.x, y: pos.y, z: pos.z }
+      };
+      console.log('[Config]', JSON.stringify(msg, null, 2));
+    } catch (e) {
+      console.log('[Config] pointSize:', this.params.pointSize,
+        'subsampleRate:', this.params.subsampleRate,
+        'modelScale:', this.params.modelScale,
+        'position:', this.modelPosition);
+    }
   }
 
   setupXREventListeners() {

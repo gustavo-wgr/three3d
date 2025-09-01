@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>3D Scene Viewer - GLB Scene</title>
     <style>
       body {
@@ -21,26 +24,69 @@
         font-family: Arial, sans-serif;
       }
     </style>
+    <script>
+      // Try to break out of sandboxed iframe if embedded (Quest browser sometimes wraps pages)
+      try {
+        if (window.top !== window.self) {
+          console.log('Page is in iframe, attempting to break out...');
+          window.top.location = window.self.location;
+        }
+      } catch (e) {
+        console.log('Cannot break out of iframe due to same-origin policy');
+      }
+    </script>
 </head>
 <body>
     <script type="importmap">
       {
         "imports": {
-          "three": "https://unpkg.com/three@0.167.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.167.0/examples/jsm/"
+          "three": "./node_modules/three/build/three.module.js",
+          "three/addons/": "./node_modules/three/examples/jsm/"
         }
       }
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <link rel="stylesheet" href="./node_modules/dat.gui/build/dat.gui.css">
+    <script src="./node_modules/dat.gui/build/dat.gui.min.js"></script>
+    <script>
+      // Fallback stub if dat.gui fails to load (e.g., due to sandbox/CDN restrictions)
+      if (typeof window.dat === 'undefined') {
+        console.warn('dat.gui failed to load; using no-op fallback');
+        window.dat = {
+          GUI: function() {
+            return {
+              add: function() { return this; },
+              addFolder: function() { return this; },
+              addColor: function() { return this; },
+              addSlider: function() { return this; },
+              addButton: function() { return this; },
+              addText: function() { return this; },
+              onChange: function() { return this; },
+              onFinishChange: function() { return this; },
+              open: function() { return this; },
+              close: function() { return this; },
+              destroy: function() { return this; },
+              name: function() { return this; },
+              listen: function() { return this; },
+              __input: { readOnly: false }
+            };
+          }
+        };
+      }
+    </script>
     <div id="info">Loading GLB Scene...</div>
-
-    <script type="module">
-      import { MainApplication } from "./src/main.js";
-
-      // Initialize the application when the page loads
+    <script>
+      // Initialize using dynamic import to avoid sandboxed module execution restrictions
       document.addEventListener('DOMContentLoaded', async () => {
-        const app = new MainApplication();
-        await app.initialize();
+        const infoEl = document.getElementById('info');
+        try {
+          infoEl && (infoEl.textContent = 'Scripts are working! Loading application...');
+          const { MainApplication } = await import('./src/main.js');
+          const app = new MainApplication();
+          await app.initialize();
+        } catch (error) {
+          console.error('Failed to initialize application:', error);
+          if (infoEl) infoEl.textContent = 'Failed to load application. Error: ' + (error && error.message ? error.message : String(error));
+        }
       });
     </script>
 </body>

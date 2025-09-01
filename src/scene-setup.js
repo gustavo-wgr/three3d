@@ -17,6 +17,7 @@ export class SceneSetup {
     this.onSurveyCompleted = null; // Callback for when survey is completed
     this.allSurveyResults = []; // Aggregate of all survey payloads
     this.surveyMetadataProvider = null; // Optional provider for extra context per submission
+    this.debugHideOverlays = false; // When true, suppress overlays for debugging
   }
 
   initialize() {
@@ -203,8 +204,33 @@ export class SceneSetup {
     message.style.margin = '12px 0 0 0';
     message.style.color = '#ecf0f1';
 
+    const debugRow = document.createElement('div');
+    debugRow.style.display = 'flex';
+    debugRow.style.justifyContent = 'center';
+    debugRow.style.marginTop = '12px';
+
+    const hideBtn = document.createElement('button');
+    hideBtn.type = 'button';
+    hideBtn.textContent = 'Hide Overlays (Debug)';
+    hideBtn.style.padding = '8px 14px';
+    hideBtn.style.cursor = 'pointer';
+    hideBtn.style.background = '#34495e';
+    hideBtn.style.color = '#ecf0f1';
+    hideBtn.style.border = '1px solid #3498db';
+    hideBtn.style.borderRadius = '6px';
+    hideBtn.addEventListener('click', () => {
+      this.debugHideOverlays = true;
+      this.hideWelcomeOverlay();
+      this.hidePhase1FinishedOverlay();
+      this.hideThankYouOverlay();
+      this.hideSurveyOverlay();
+      console.log('[Debug] Overlays hidden for this session');
+    });
+    debugRow.appendChild(hideBtn);
+
     panel.appendChild(title);
     panel.appendChild(message);
+    panel.appendChild(debugRow);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
 
@@ -212,6 +238,7 @@ export class SceneSetup {
   }
 
   showWelcomeOverlay() {
+    if (this.debugHideOverlays) return;
     if (!this.welcomeOverlay) this.createWelcomeOverlay();
     if (this.welcomeOverlay) this.welcomeOverlay.style.display = 'flex';
   }
@@ -668,6 +695,7 @@ export class SceneSetup {
   }
 
   showThankYouOverlay() {
+    if (this.debugHideOverlays) return;
     if (!this.thankYouOverlay) this.createThankYouOverlay();
     this.thankYouOverlay.style.display = 'flex';
     console.log('[Study] Showing thank you message');
@@ -695,6 +723,7 @@ export class SceneSetup {
   }
 
   showPhase1FinishedOverlay() {
+    if (this.debugHideOverlays) return;
     if (!this.phase1FinishedOverlay) this.createPhase1FinishedOverlay();
     this.phase1FinishedOverlay.style.display = 'flex';
     console.log('[Phase 1] Showing completion message');
@@ -722,6 +751,7 @@ export class SceneSetup {
   }
 
   showSurveyOverlay() {
+    if (this.debugHideOverlays) return;
     if (!this.surveyOverlay) this.createSurveyOverlay();
     // Clear form inputs to prevent pre-filled answers from previous sessions
     this.clearSurveyForm();
