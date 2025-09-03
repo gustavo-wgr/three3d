@@ -1,9 +1,9 @@
 import * as THREE from "three";
-import { SceneSetup } from "./scene-setup.js";
+import { SceneManager } from "./core/SceneManager.js";
 import { DataCollector } from "./DataCollector.js";
-import { UIOverlayManager } from "./UIOverlayManager.js";
-import { ExperimentController } from "./ExperimentController.js";
-import { PointcloudManager } from "./pointcloud-manager.js";
+import { OverlayManager } from "./ui/OverlayManager.js";
+import { AppController } from "./core/AppController.js";
+import { ModelLoader } from "./models/ModelLoader.js";
 import { GUIManager } from "./gui-manager.js";
 import { getModelUrls, getAvailableFolders, getModelPositionPreset, getModelRenderPreset } from "./config.js";
 
@@ -34,10 +34,8 @@ export class MainApplication {
     this.selectedFolder = this.folderSequence[0];
     this.glbFiles = [];
     this.currentGlbIndex = 0;
-    this.autoSwitchEnabled = true;
     // 10s per model
-    this.autoSwitchDelayMs = 1000;
-    this.autoSwitchTimer = null;
+    this.autoSwitchDelayMs = 10000;
     
     // Parameters for GUI
     this.params = {
@@ -57,7 +55,7 @@ export class MainApplication {
       toggleBackground: () => this.sceneSetup.toggleBackground(),
       switchToNextGlb: () => this.controller && this.controller.switchToNextGlb(),
       switchFolder: () => this.controller && this.controller.switchFolder(),
-      autoSwitch: this.autoSwitchEnabled,
+      autoSwitch: true,
       // Positioning
       positionStep: 0.1,
       moveUp: () => this.nudgeModel(0, this.params.positionStep, 0),
@@ -91,17 +89,25 @@ export class MainApplication {
   }
 
   async initialize() {
-    // Initialize scene setup
-    this.sceneSetup = new SceneSetup();
+    // Initialize scene manager
+    this.sceneSetup = new SceneManager();
     this.sceneSetup.initialize();
 
     // Data collection and overlays
     this.dataCollector = new DataCollector();
-    this.sceneSetup.setDataCollector(this.dataCollector);
-    this.ui = new UIOverlayManager(this.sceneSetup);
+    this.ui = new OverlayManager();
+    // Pipe overlay events into data collector
+    if (this.ui && typeof this.ui.on === 'function') {
+      this.ui.on('surveySubmit', (payload) => {
+        try { this.dataCollector.addSurvey(payload); } catch (_) {}
+      });
+      this.ui.on('attrakSubmit', (payload) => {
+        try { this.dataCollector.addAttrakDiff(payload); this.dataCollector.download(); } catch (_) {}
+      });
+    }
 
     // Initialize pointcloud manager
-    this.pointcloudManager = new PointcloudManager(this.sceneSetup.scene);
+    this.pointcloudManager = new ModelLoader(this.sceneSetup.scene);
 
 
     // Initialize GUI
@@ -111,9 +117,10 @@ export class MainApplication {
     this.guiManager.setupGUI();
 
     // Controller: orchestrates XR flow and sequencing
-    this.controller = new ExperimentController({
-      sceneSetup: this.sceneSetup,
-      pointcloudManager: this.pointcloudManager,
+    this.controller = new AppController({
+      sceneManager: this.sceneSetup,
+      modelLoader: this.pointcloudManager,
+      overlayManager: this.ui,
       params: this.params,
       guiUpdate: (fields) => {
         if (this.guiManager && typeof this.guiManager.updateDisplayFor === 'function') {
@@ -126,11 +133,18 @@ export class MainApplication {
     this.controller.initialize();
 
     // Provide metadata for each survey submission (use controller indices)
-    this.sceneSetup.setSurveyMetadataProvider(() => ({
+    this.sceneSetup.setSurveyMetadataProvider && this.sceneSetup.setSurveyMetadataProvider(() => ({
       folder: (this.controller && this.controller.selectedFolder) || this.selectedFolder,
       model: this.params.currentGlb,
       modelIndex: (this.controller && this.controller.currentGlbIndex) || this.currentGlbIndex,
-      sequenceIndex: (this.controller && this.controller.currentFolderIndex) || this.currentFolderIndex
+      sequenceIndex: (this.controller && this.controller.currentFolderIndex) || this.currentFolderIndex,
+      totalFolders: (this.controller && Array.isArray(this.controller.folderSequence)) ? this.controller.folderSequence.length : (Array.isArray(this.folderSequence) ? this.folderSequence.length : 0),
+      isLastFolder: (this.controller && Array.isArray(this.controller.folderSequence))
+        ? (this.controller.currentFolderIndex >= this.controller.folderSequence.length - 1)
+        : (this.currentFolderIndex >= this.folderSequence.length - 1),
+      hasNextFolder: (this.controller && Array.isArray(this.controller.folderSequence))
+        ? (this.controller.currentFolderIndex < this.controller.folderSequence.length - 1)
+        : (this.currentFolderIndex < this.folderSequence.length - 1)
     }));
 
     // Keyboard listener for quick actions
@@ -140,7 +154,7 @@ export class MainApplication {
 
     // Update GUI param actions to delegate to controller
     this.params.switchToNextGlb = () => this.controller && this.controller.switchToNextGlb();
-    this.params.switchFolder = () => this.controller && this.controller.switchFolder();
+    this.params.switchFolder = () => this.controller && this.controller.switchFolder && this.controller.switchFolder();
 
     // Start animation loop
     this.animate();
@@ -217,14 +231,10 @@ export class MainApplication {
         this.loadGlbModel(this.glbFiles[this.currentGlbIndex]);
       },
       onAutoSwitchToggle: (value) => {
-        this.autoSwitchEnabled = !!value;
-        this.params.autoSwitch = this.autoSwitchEnabled;
-        if (!this.autoSwitchEnabled && this.autoSwitchTimer) {
-          clearTimeout(this.autoSwitchTimer);
-          this.autoSwitchTimer = null;
-        } else if (this.autoSwitchEnabled && this.sceneSetup.isInXRSession) {
-          // If enabling auto-switch and we're already in VR, start the timer
-          this.startAutoSwitchTimer();
+        if (this.controller && typeof this.controller.setAutoSwitchEnabled === 'function') {
+          this.controller.setAutoSwitchEnabled(!!value);
+        } else {
+          this.params.autoSwitch = !!value;
         }
       },
       onXRBackgroundModeChange: (value) => {
