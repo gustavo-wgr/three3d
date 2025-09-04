@@ -35,7 +35,7 @@ export class MainApplication {
     this.glbFiles = [];
     this.currentGlbIndex = 0;
     // 10s per model
-    this.autoSwitchDelayMs = 10000;
+    this.autoSwitchDelayMs = 3000;
     
     // Parameters for GUI
     this.params = {
@@ -128,7 +128,12 @@ export class MainApplication {
         }
       },
       folderSequence: this.folderSequence,
-      autoSwitchDelayMs: this.autoSwitchDelayMs
+      autoSwitchDelayMs: this.autoSwitchDelayMs,
+      onPositionComputed: (basePos, effectivePos) => {
+        // Keep app-level state in sync with controller's computed positions
+        this.baseModelPosition = { ...basePos };
+        this.modelPosition = { ...effectivePos };
+      }
     });
     this.controller.initialize();
 
@@ -190,7 +195,16 @@ export class MainApplication {
   onKeyDown(event) {
     if (!event || !event.key) return;
     if (event.key === 'r' || event.key === 'R') {
-      const pos = this.modelPosition;
+      // Prefer reading the actual object position if available
+      let pos = this.modelPosition;
+      try {
+        const obj = this.pointcloudManager && this.pointcloudManager.getPointCloud && this.pointcloudManager.getPointCloud();
+        if (obj && obj.position) {
+          pos = { x: obj.position.x, y: obj.position.y, z: obj.position.z };
+          // keep internal state in sync too
+          this.modelPosition = { ...pos };
+        }
+      } catch (_) {}
       console.log(
         `Current model position: { x: ${pos.x.toFixed(3)}, y: ${pos.y.toFixed(3)}, z: ${pos.z.toFixed(3)} }`
       );
@@ -224,11 +238,23 @@ export class MainApplication {
         }
       },
       onFolderChange: (value) => {
-        this.selectedFolder = value;
-        this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
-        this.currentGlbIndex = 0;
-        this.params.currentGlb = this.glbFiles[0];
-        this.loadGlbModel(this.glbFiles[this.currentGlbIndex]);
+        // Delegate manual folder switching to the controller for consistent behavior
+        if (this.controller && typeof this.controller.selectFolder === 'function') {
+          this.controller.selectFolder(value);
+        } else {
+          // Fallback: maintain previous behavior without direct model loading here
+          this.selectedFolder = value;
+          this.glbFiles = getModelUrls(this.selectedFolder).slice(0, 3);
+          this.currentGlbIndex = 0;
+          this.params.currentGlb = this.glbFiles[0] || '';
+          // Delegate actual loading to ModelLoader if available
+          if (this.pointcloudManager && typeof this.pointcloudManager.loadGlbModel === 'function' && this.params.currentGlb) {
+            this.pointcloudManager.loadGlbModel(this.params.currentGlb, this.params, () => {
+              const pos = this.modelPosition || { x: 0, y: 2.1, z: -3 };
+              this.pointcloudManager.updatePointCloudPosition(pos.x, pos.y, pos.z);
+            });
+          }
+        }
       },
       onAutoSwitchToggle: (value) => {
         if (this.controller && typeof this.controller.setAutoSwitchEnabled === 'function') {

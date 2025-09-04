@@ -89,25 +89,54 @@ function listLocalGlbPaths() {
 // Keys are per-folder; file names include both raw and _subsampled variants where relevant
 const modelPositionPresets = {
   'train': {
-    'moge-medium-19.glb': { x: 0.000, y: 2.000, z: 4.000 },
-    'uni-medium-10.glb': { x: 0.000, y: 1.500, z: 1.500 },
-    'vggt-medium-15.glb': { x: 0.000, y: 1.500, z: 1.500 },
+    'moge-medium-19.glb': { x: 0.000, y: 2.000, z: 2.160 },
+    'uni-medium-10.glb': { x: 0.000, y: 1.270, z: 0.7000 },
+    'vggt-medium-15.glb': { x: 0.000, y: 1.080, z: 0.2600 },
   },
   'moge-long': {
+    '2.glb': { x: 0.000, y: 1.960, z: 2.1500 },
+    '5.glb': { x: 0.000, y: 2.660, z: 2.3000 },
+    '6.glb': { x: 0.000, y: 1.860, z: 1.7000 },
   },
   'moge-medium': {
+    '1.glb': { x: -0.4100, y: 2.100, z: 1.8100 },
+    '3.glb': { x: 0.000, y: 2.100, z: 4.4100 },
+    '14.glb': { x: 0.000, y: 2.100, z: 2.9400 },
   },
   'moge-short': {
+    '17.glb': { x: 0.000, y: 1.250, z: 0.1400 },
+    'pointcloud(1).glb': { x: 0.000, y: 1.250, z: 0.4000 },
+    'pointcloud(3).glb': { x: 0.000, y: 1.000, z: 0.0600 },
   },
   'uni-long': {
+    '2_subsampled.glb': { x: 0.000, y: 1.110, z: -0.1600 },
+    '5_subsampled.glb': { x: 0.000, y: 1.4300, z: 1.7700 },
+    '8_subsampled.glb': { x: 0.000, y: 2.100, z: 3.7200 },
   },
-  'uni-medium': {},
-  'uni-short': {},
+  'uni-medium': {
+    '1_subsampled.glb': { x: 0.000, y: 1.500, z: 1.500 },
+    '1.glb': { x: 0.3500, y: 1.500, z: 5.100 },
+    '3_subsampled.glb': { x: 0.000, y: 1.400, z: 1.200 },
+  },
+  'uni-short': {
+    '8.glb': { x: 0.000, y: 1.000, z: 0.1500 },
+    '13.glb': { x: 0.000, y: 1.000, z: 0.1500 },
+    '15.glb': { x: 0.000, y: 1.000, z: 0.5000 },
+  },
   'vggt-long': {
+    '2.glb': { x: 0.000, y: 1.060, z: -0.0400 },
+    '5.glb': { x: 0.000, y: 1.100, z: -0.0500 },
+    '6.glb': { x: 0.000, y: 1.050, z: -0.1800 },
   },
   'vggt-medium': {
+    '1.glb': { x: 0.000, y: 1.040, z: 0.0800 },
+    '2.glb': { x: 0.000, y: 1.100, z: 0.1900 },
+    '3.glb': { x: 0.000, y: 1.000, z: -0.0500 },
   },
   'vggt-short': {
+    '1.glb': { x: 0.000, y: 1.160, z: 0.0700 },
+    '3.glb': { x: 0.000, y: 1.160, z: 0.2600 },
+    '4.glb': { x: 0.000, y: 1.070, z: 0.2300 },
   }
 };
 
@@ -116,27 +145,54 @@ const modelPositionPresets = {
 // Keys are per-folder
 const modelRenderPresets = {
   'train': {
-    'moge-medium-19.glb': { pointSize: 0.006, subsampleRate: 0.3, modelScale: 1, backgroundColor: '#8c8c8c' },
-    'uni-medium-10.glb': { pointSize: 0.006, subsampleRate: 0.06, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
-    'vggt-medium-15.glb': { pointSize: 0.006, subsampleRate: 1.0, modelScale: 1, backgroundColor: '#8c8c8c', flipUpsideDown: true },
+    'moge-medium-19.glb': { pointSize: 0.020, subsampleRate: 0.33, modelScale: 0.5, backgroundColor: '#8c8c8c' },
+    'uni-medium-10.glb': { pointSize: 0.003, subsampleRate: 0.06, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'vggt-medium-15.glb': { pointSize: 0.002, subsampleRate: 1.0, modelScale: 1, backgroundColor: '#8c8c8c', flipUpsideDown: true },
   },
   'moge-long': {
+    '2.glb': { pointSize: 0.01, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
+    '5.glb': { pointSize: 0.005, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
+    '6.glb': { pointSize: 0.005, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
   },
   'moge-medium': {
+    '1.glb': { pointSize: 0.004, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
+    '3.glb': { pointSize: 0.010, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
+    '14.glb': { pointSize: 0.014, subsampleRate: 0.54, modelScale: 1, backgroundColor: '#8c8c8c' },
   },
   'moge-short': {
+    '17.glb': { pointSize: 0.002, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'pointcloud(1).glb': { pointSize: 0.003, subsampleRate: 0.51, modelScale: 0.5, backgroundColor: '#8c8c8c' },
+    'pointcloud(3).glb': { pointSize: 0.003, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
   },
   'uni-long': {
+    '2_subsampled.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.01, backgroundColor: '#8c8c8c', faceCamera: true },
+    '5_subsampled.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    '8_subsampled.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
   },
   'uni-medium': {
+    '1_subsampled.glb': { pointSize: 0.006, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    '1.glb': { pointSize: 0.006, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    '3_subsampled.glb': { pointSize: 0.006, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
   },
   'uni-short': {
+    '8.glb': { pointSize: 0.001, subsampleRate: 0.08, modelScale: 1, backgroundColor: '#8c8c8c', faceCamera: true },
+    '13.glb': { pointSize: 0.002, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    '15.glb': { pointSize: 0.001, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
   },
   'vggt-long': {
+    '2.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    '5.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    '6.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
   },
   'vggt-medium': {
+    '1.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    '2.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    '3.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
   },
   'vggt-short': {
+    '1.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    '3.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    '4.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
   }
 };
 

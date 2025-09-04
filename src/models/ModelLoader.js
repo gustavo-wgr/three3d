@@ -143,9 +143,11 @@ export class ModelLoader {
           this.geometry = geometry;
         }
 
-        // Initial transforms
-        const pos = { x: 0, y: 2.1, z: -3 };
-        object3D.position.set(pos.x, pos.y, pos.z);
+        // Initial transforms: allow controller-provided base/effective positions
+        const initialPos = (params && typeof params === 'object' && params.__initialPosition)
+          ? params.__initialPosition
+          : { x: 0, y: 2.1, z: -3 };
+        object3D.position.set(initialPos.x, initialPos.y, initialPos.z);
         const scale = (params && typeof params.modelScale === 'number') ? params.modelScale : 1.0;
         object3D.scale.set(scale, scale, scale);
         object3D.rotation.set(0, (params && params.initialYawRadians) || 0, 0);

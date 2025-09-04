@@ -2,7 +2,7 @@ import { blockModelSelections, config, getModelPositionPreset, getModelRenderPre
 
 // Central orchestrator for blocks, XR flow, and sequencing.
 export class AppController {
-  constructor({ sceneManager, modelLoader, overlayManager, params, guiUpdate, folderSequence, autoSwitchDelayMs = 1000 }) {
+  constructor({ sceneManager, modelLoader, overlayManager, params, guiUpdate, folderSequence, autoSwitchDelayMs = 1000, onPositionComputed }) {
     this.scene = sceneManager;
     this.models = modelLoader;
     this.ui = overlayManager;
@@ -23,6 +23,7 @@ export class AppController {
     this.autoSwitchTimer = null;
     this.pendingSurvey = false;
     this.state = 'idle'; // idle | block | survey | attrak | done
+    this.onPositionComputed = typeof onPositionComputed === 'function' ? onPositionComputed : null;
 
     // Bind
     this.onXRStart = this.onXRStart.bind(this);
@@ -48,6 +49,48 @@ export class AppController {
     this.glbFiles = this.blocks[0]?.models || [];
     this.currentGlbIndex = 0;
     this.params.currentGlb = this.glbFiles[0] || '';
+  }
+
+  // Manual folder selection from GUI
+  selectFolder(folder) {
+    try {
+      if (!folder || typeof folder !== 'string') return;
+      // Find the target block by folder name
+      const blockIndex = this.blocks.findIndex(b => b.folder === folder);
+      if (blockIndex === -1) return;
+
+      // Update indices and selection
+      this.currentBlockIndex = blockIndex;
+      this.currentFolderIndex = blockIndex;
+      this.selectedFolder = this.blocks[blockIndex].folder;
+      this.params.selectedFolder = this.selectedFolder;
+
+      // Update models for this block
+      this.glbFiles = this.blocks[blockIndex].models || [];
+      this.currentGlbIndex = 0;
+      this.params.currentGlb = this.glbFiles[0] || '';
+
+      // Clear current model and load first of the selected folder
+      try { this.models.clearPointCloud && this.models.clearPointCloud(); } catch (_) {}
+
+      // Adjust default rendering based on folder family similar to flow transitions
+      if (this.selectedFolder.startsWith('vggt')) {
+        this.params.flipUpsideDown = true;
+        this.params.subsampleRate = 1.0;
+        this.params.pointSize = 0.003;
+      } else {
+        this.params.flipUpsideDown = false;
+        this.params.subsampleRate = 0.06;
+        this.params.pointSize = 0.006;
+      }
+      this.guiUpdate && this.guiUpdate(['pointSize', 'subsampleRate', 'flipUpsideDown']);
+
+      if (this.params.currentGlb) {
+        this.loadCurrentModel();
+      }
+    } catch (e) {
+      try { console.warn('[GUI] Failed to select folder', folder, e); } catch (_) {}
+    }
   }
 
   destroy() {
@@ -163,7 +206,12 @@ export class AppController {
     }
 
     this.params.currentGlb = glbUrl;
+    // Inform host app about computed positions (base and effective)
+    try { this.onPositionComputed && this.onPositionComputed({ ...this.baseModelPosition }, { ...this.modelPosition }); } catch (_) {}
+    // Provide initial position to loader so object spawns at the preset spot
+    this.params.__initialPosition = { ...this.modelPosition };
     this.models.loadGlbModel(glbUrl, this.params, () => {
+      try { delete this.params.__initialPosition; } catch (_) {}
       const position = this.modelPosition || { x: 0, y: 2.1, z: -3 };
       this.models.updatePointCloudPosition(position.x, position.y, position.z);
       this.models.setFlipUpsideDown(this.params.flipUpsideDown);
