@@ -128,7 +128,6 @@ export class AppController {
     console.log('[Flow] onXREnd: state=', this.state, 'pendingSurvey=', this.pendingSurvey, 'folder=', this.selectedFolder, 'blockIndex=', this.currentBlockIndex);
     if (this.pendingSurvey && this.state === 'block') {
       this.state = 'survey';
-      const questions = this.getSurveyQuestions();
       const contextProvider = () => ({
         folder: this.selectedFolder,
         model: this.params.currentGlb,
@@ -138,7 +137,7 @@ export class AppController {
         isLastFolder: this.currentBlockIndex >= this.blocks.length - 1,
         hasNextFolder: this.currentBlockIndex < this.blocks.length - 1
       });
-      try { console.log('[Survey] Showing survey overlay with context:', contextProvider()); this.ui.showSurveyOverlay(questions, contextProvider); } catch (e) { console.warn('[Survey] Failed to show survey overlay', e); }
+      try { console.log('[Survey] Showing survey overlay with context:', contextProvider()); this.ui.showSurveyOverlay(contextProvider); } catch (e) { console.warn('[Survey] Failed to show survey overlay', e); }
       this.pendingSurvey = false;
     }
   }
@@ -345,15 +344,6 @@ export class AppController {
     // Final thank-you page after AttrakDiff
     try { this.state = 'done'; } catch (_) {}
     try { this.ui.showThankYou && this.ui.showThankYou(); } catch (_) {}
-  }
-
-  getSurveyQuestions() {
-    return [
-      { key: 'qOverall', text: 'How do you rate the overall visual quality of these models?', left: 'very poor', right: 'excellent', summary: 'QUALITY' },
-      { key: 'q4', text: 'How authentic did you find the pictures you looked at?', left: 'not authentic at all', right: 'very authentic', summary: 'AUTHENTICITY' },
-      { key: 'q5', text: 'How detailed were you able to perceive the pictures?', left: 'not at all detailed', right: 'very detailed', summary: 'DETAILS' },
-      { key: 'q6', text: 'How strongly did you feel immersed in the scene of the pictures?', left: 'not at all', right: 'very much', summary: 'IMMERSION' }
-    ];
   }
 }
 

@@ -35,7 +35,7 @@ export class MainApplication {
     this.glbFiles = [];
     this.currentGlbIndex = 0;
     // 10s per model
-    this.autoSwitchDelayMs = 3000;
+    this.autoSwitchDelayMs = 200;
     
     // Parameters for GUI
     this.params = {

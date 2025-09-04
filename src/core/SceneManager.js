@@ -19,6 +19,7 @@ export class SceneManager {
     // In-VR Block HUD sprite
     this.blockSprite = null;
     this.blockTimer = null;
+    this.startExplanationEl = null;
   }
 
   on(evt, fn) { if (this.listeners[evt]) this.listeners[evt].push(fn); }
@@ -46,6 +47,10 @@ export class SceneManager {
       this.renderer.xr.setReferenceSpaceType('local-floor');
     }
     document.body.appendChild(XRButton.createButton(this.renderer, this.sessionInit));
+    this.injectXRButtonStyles();
+    this.customizeXRButton();
+    this.injectStartExplanationStyles();
+    this.createOrShowStartExplanation();
 
     this.setupXREvents();
     this.setupLighting();
@@ -110,13 +115,131 @@ export class SceneManager {
       }
       console.log('XR session started - scene');
       this.emit('xrstart');
+      try { this.setXRButtonLabel('End Experiment'); } catch (_) {}
+      try { this.hideStartExplanation(); } catch (_) {}
     });
     this.renderer.xr.addEventListener('sessionend', () => {
       this.isInXRSession = false;
       this.backgroundSphere.material.opacity = this.isBackgroundVisible ? 1.0 : 0.0;
       console.log('XR session ended - scene');
       this.emit('xrend');
+      try { this.setXRButtonLabel('Start Experiment'); } catch (_) {}
+      try { this.createOrShowStartExplanation(); } catch (_) {}
     });
+  }
+
+  customizeXRButton() {
+    try {
+      const btn = document.getElementById('XRButton');
+      if (!btn) return;
+
+      // Apply all styles first
+      btn.style.position = 'fixed';
+      btn.style.bottom = '32px';
+      btn.style.right = 'auto';
+      btn.style.left = '50%';
+      btn.style.zIndex = '10000';
+      btn.style.padding = '24px 36px';
+      btn.style.fontSize = '28px';
+      btn.style.fontWeight = '900';
+      btn.style.borderRadius = '28px';
+      btn.style.background = 'linear-gradient(180deg, #6ea2ff, #4a74ff)';
+      btn.style.color = '#ffffff';
+      btn.style.border = 'none';
+      btn.style.letterSpacing = '0.5px';
+      btn.style.boxShadow = '0 24px 48px rgba(74,116,255,0.45)';
+      btn.style.cursor = 'pointer';
+      btn.style.width = 'auto';
+      btn.style.minWidth = '200px';
+      btn.style.textAlign = 'center';
+      btn.style.display = 'inline-flex';
+      btn.style.alignItems = 'center';
+      btn.style.justifyContent = 'center';
+      btn.style.whiteSpace = 'nowrap';
+      btn.style.lineHeight = '1.2';
+
+      // Set the text with a small delay to ensure XRButton is fully initialized
+      const applyLabelAndLayout = () => {
+        this.setXRButtonLabel('Start Experiment');
+        btn.setAttribute('aria-label', 'Start Experiment');
+        // Re-assert sizing in case library overwrote it
+        btn.style.left = '50%';
+        btn.style.width = 'auto';
+        btn.style.right = 'auto';
+        btn.style.transform = 'translateX(-50%)';
+      };
+      setTimeout(applyLabelAndLayout, 50);
+      setTimeout(applyLabelAndLayout, 250);
+
+      // Hover effects
+      btn.onmouseenter = () => { btn.style.background = 'linear-gradient(180deg, #7ab0ff, #597fff)'; };
+      btn.onmouseleave = () => { btn.style.background = 'linear-gradient(180deg, #6ea2ff, #4a74ff)'; };
+      btn.onmousedown = () => { btn.style.transform = 'translateX(-50%) translateY(1px)'; };
+      btn.onmouseup = () => { btn.style.transform = 'translateX(-50%)'; };
+    } catch (_) {}
+  }
+
+  setXRButtonLabel(text) {
+    const btn = document.getElementById('XRButton');
+    if (btn) { btn.textContent = String(text); btn.setAttribute('aria-label', String(text)); }
+  }
+
+  injectXRButtonStyles() {
+    try {
+      if (document.getElementById('xrbutton-styles')) return;
+      const style = document.createElement('style');
+      style.id = 'xrbutton-styles';
+      style.textContent = `
+        #XRButton { position: fixed !important; bottom: 32px !important; left: 50% !important; right: auto !important; transform: translateX(-50%) !important; width: auto !important; min-width: 220px !important; padding: 24px 36px !important; border: none !important; border-radius: 28px !important; background: linear-gradient(180deg, #6ea2ff, #4a74ff) !important; color: #ffffff !important; font-weight: 900 !important; font-size: 28px !important; letter-spacing: 0.5px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; white-space: nowrap !important; line-height: 1.2 !important; box-shadow: 0 24px 48px rgba(74,116,255,0.45) !important; cursor: pointer !important; z-index: 10000 !important; }
+        #XRButton:hover { background: linear-gradient(180deg, #7ab0ff, #597fff) !important; }
+      `;
+      document.head.appendChild(style);
+    } catch (_) {}
+  }
+
+  // ===== Start Explanation Overlay =====
+  injectStartExplanationStyles() {
+    try {
+      if (document.getElementById('start-explanation-styles')) return;
+      const style = document.createElement('style');
+      style.id = 'start-explanation-styles';
+      style.textContent = `
+        #StartExplanation { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); bottom: auto; width: min(1000px, 90vw); padding: 24px 26px; color: #e9edf7; text-align: center; font-size: 40px; line-height: 1.6; z-index: 9999; pointer-events: none; }
+        #StartExplanation .sx-card { display: inline-block; background: radial-gradient(1000px 700px at 50% 30%, rgba(35,38,48,0.95), rgba(16,18,24,0.92)); border: 1px solid rgba(255,255,255,0.10); border-radius: 24px; padding: 28px 32px; box-shadow: 0 28px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06); }
+        #StartExplanation .sx-title { font-weight: 900; color: #ffffff; margin-bottom: 14px; font-size: 44px; letter-spacing: 0.4px; text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
+        #StartExplanation .sx-text { color: #d7deec; text-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+        @media (max-width: 640px) { #StartExplanation { font-size: 28px; } #StartExplanation .sx-title { font-size: 32px; } }
+      `;
+      document.head.appendChild(style);
+    } catch (_) {}
+  }
+
+  createOrShowStartExplanation() {
+    try {
+      if (!this.startExplanationEl) {
+        const wrap = document.createElement('div');
+        wrap.id = 'StartExplanation';
+        const card = document.createElement('div');
+        card.className = 'sx-card';
+        const title = document.createElement('div');
+        title.className = 'sx-title';
+        title.textContent = 'Welcome';
+        const text = document.createElement('div');
+        text.className = 'sx-text';
+        text.textContent = 'In this experiment you will be asked to evaluate 3D models. The models are divided in blocks, for a total of 10 blocks. The experiment takes about 10 minutes. After certain blocks, you will be asked to fill out a form. Feel free to ask any questions you may have now. When you are ready press the button below.';
+        card.appendChild(title);
+        card.appendChild(text);
+        wrap.appendChild(card);
+        document.body.appendChild(wrap);
+        this.startExplanationEl = wrap;
+      } else {
+        this.startExplanationEl.style.display = 'block';
+      }
+    } catch (_) {}
+  }
+
+  hideStartExplanation() {
+    try { if (this.startExplanationEl) this.startExplanationEl.style.display = 'none'; } catch (_) {}
   }
 
   setupLighting() {

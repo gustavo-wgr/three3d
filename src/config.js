@@ -25,34 +25,34 @@ const folderOrder = [
 // Paths are relative to each folder
 const modelFolders = {
   'train': [
-    'moge-medium-19.glb', 'uni-medium-10.glb', 'vggt-medium-15.glb'
+    'moge-medium-19.glb', 'uni-long-15.glb', 'vggt-medium-15.glb', 'uni-short-24.glb'
   ],
   'moge-long': [
-    '2.glb','5.glb','6.glb'
+    'moge-long-1.glb','moge-long-2.glb','moge-long-3.glb', 'moge-long-4.glb'
   ],
   'moge-medium': [
-    '1.glb','3.glb','14.glb'
+    'moge-medium-1.glb','moge-medium-2.glb','moge-medium-3.glb', 'moge-medium-4.glb'
   ],
   'moge-short': [
-    '17.glb','pointcloud(1).glb','pointcloud(3).glb'
+    'moge-short-1.glb','moge-short-2.glb','moge-short-3.glb', 'moge-short-4.glb'
   ],
   'uni-long': [
-    '2_subsampled.glb','5_subsampled.glb','8_subsampled.glb'
+    'uni-long-1.glb','uni-long-2.glb','uni-long-3.glb', 'uni-long-4.glb'
   ],
   'uni-medium': [
-    '1_subsampled.glb','1.glb','3_subsampled.glb'
+    'uni-medium-1.glb','uni-medium-2.glb','uni-medium-3.glb', 'uni-medium-4.glb'
   ],
   'uni-short': [
-    '8.glb','13.glb','15.glb'
+    'uni-short-1.glb','uni-short-2.glb','uni-short-3.glb', 'uni-short-4.glb'
   ],
   'vggt-long': [
-    '2.glb','5.glb','6.glb'
+    'vggt-long-1.glb','vggt-long-2.glb','vggt-long-3.glb', 'vggt-long-4.glb'
   ],
   'vggt-medium': [
-    '1.glb','2.glb','3.glb'
+    'vggt-medium-1.glb','vggt-medium-2.glb','vggt-medium-3.glb', 'vggt-medium-4.glb'
   ],
   'vggt-short': [
-    '1.glb','3.glb','4.glb'
+    'vggt-short-1.glb','vggt-short-2.glb','vggt-short-3.glb', 'vggt-short-4.glb'
   ]
 };
 
@@ -60,17 +60,17 @@ const modelFolders = {
 // exactly which models are shown for each folder/block.
 const blockModelSelections = {
   'train': [
-    'moge-medium-19.glb', 'uni-medium-10.glb', 'vggt-medium-15.glb'
+    'moge-medium-19.glb', 'uni-long-15.glb', 'vggt-medium-15.glb', 'uni-short-24.glb'
   ],
-  'moge-long': [ '2.glb', '5.glb', '6.glb' ],
-  'moge-medium': [ '1.glb', '3.glb', '14.glb' ],
-  'moge-short': [ '17.glb', 'pointcloud(1).glb', 'pointcloud(3).glb' ],
-  'uni-long': [ '2_subsampled.glb', '5_subsampled.glb', '8_subsampled.glb' ],
-  'uni-medium': [ '1_subsampled.glb', '1.glb', '3_subsampled.glb' ],
-  'uni-short': [ '8.glb', '13.glb', '15.glb' ],
-  'vggt-long': [ '2.glb', '5.glb', '6.glb' ],
-  'vggt-medium': [ '1.glb', '2.glb', '3.glb' ],
-  'vggt-short': [ '1.glb', '3.glb', '4.glb' ]
+  'moge-long': [ 'moge-long-1.glb', 'moge-long-2.glb', 'moge-long-3.glb', 'moge-long-4.glb' ],
+  'moge-medium': [ 'moge-medium-1.glb', 'moge-medium-2.glb', 'moge-medium-3.glb', 'moge-medium-4.glb' ],
+  'moge-short': [ 'moge-short-1.glb', 'moge-short-2.glb', 'moge-short-3.glb', 'moge-short-4.glb' ],
+  'uni-long': [ 'uni-long-1.glb', 'uni-long-2.glb', 'uni-long-3.glb', 'uni-long-4.glb' ],
+  'uni-medium': [ 'uni-medium-1.glb', 'uni-medium-2.glb', 'uni-medium-3.glb', 'uni-medium-4.glb' ],
+  'uni-short': [ 'uni-short-1.glb', 'uni-short-2.glb', 'uni-short-3.glb', 'uni-short-4.glb' ],
+  'vggt-long': [ 'vggt-long-1.glb', 'vggt-long-2.glb', 'vggt-long-3.glb', 'vggt-long-4.glb' ],
+  'vggt-medium': [ 'vggt-medium-1.glb', 'vggt-medium-2.glb', 'vggt-medium-3.glb', 'vggt-medium-4.glb' ],
+  'vggt-short': [ 'vggt-short-1.glb', 'vggt-short-2.glb', 'vggt-short-3.glb', 'vggt-short-4.glb' ]
 };
 
 // Dev-time discovery of .glb files under public/**
@@ -90,53 +90,63 @@ function listLocalGlbPaths() {
 const modelPositionPresets = {
   'train': {
     'moge-medium-19.glb': { x: 0.000, y: 2.000, z: 2.160 },
-    'uni-medium-10.glb': { x: 0.000, y: 1.270, z: 0.7000 },
+    'uni-long-15.glb': { x: 0.000, y: 1.270, z: 0.7000 },
+    'uni-short-24.glb': { x: 0.000, y: 1.270, z: 0.7000 },
     'vggt-medium-15.glb': { x: 0.000, y: 1.080, z: 0.2600 },
   },
   'moge-long': {
-    '2.glb': { x: 0.000, y: 1.960, z: 2.1500 },
-    '5.glb': { x: 0.000, y: 2.660, z: 2.3000 },
-    '6.glb': { x: 0.000, y: 1.860, z: 1.7000 },
+    'moge-long-1.glb': { x: 0.000, y: 1.960, z: 2.1500 },
+    'moge-long-2.glb': { x: 0.000, y: 2.660, z: 2.3000 },
+    'moge-long-3.glb': { x: 0.000, y: 1.860, z: 1.7000 },
+    'moge-long-4.glb': { x: 0.000, y: 1.860, z: 1.7000 },
   },
   'moge-medium': {
-    '1.glb': { x: -0.4100, y: 2.100, z: 1.8100 },
-    '3.glb': { x: 0.000, y: 2.100, z: 4.4100 },
-    '14.glb': { x: 0.000, y: 2.100, z: 2.9400 },
+    'moge-medium-1.glb': { x: -0.4100, y: 2.100, z: 1.8100 },
+    'moge-medium-2.glb': { x: 0.000, y: 2.100, z: 4.4100 },
+    'moge-medium-3.glb': { x: 0.000, y: 2.100, z: 2.9400 },
+    'moge-medium-4.glb': { x: 0.000, y: 2.100, z: 2.9400 },
   },
   'moge-short': {
-    '17.glb': { x: 0.000, y: 1.250, z: 0.1400 },
-    'pointcloud(1).glb': { x: 0.000, y: 1.250, z: 0.4000 },
-    'pointcloud(3).glb': { x: 0.000, y: 1.000, z: 0.0600 },
+    'moge-short-1.glb': { x: 0.000, y: 1.250, z: 0.1400 },
+    'moge-short-2.glb': { x: 0.000, y: 1.250, z: 0.4000 },
+    'moge-short-3.glb': { x: 0.000, y: 1.000, z: 0.0600 },
+    'moge-short-4.glb': { x: 0.000, y: 1.000, z: 0.0600 },
   },
   'uni-long': {
-    '2_subsampled.glb': { x: 0.000, y: 1.110, z: -0.1600 },
-    '5_subsampled.glb': { x: 0.000, y: 1.4300, z: 1.7700 },
-    '8_subsampled.glb': { x: 0.000, y: 2.100, z: 3.7200 },
+    'uni-long-1.glb': { x: 0.000, y: 1.110, z: -0.1600 },
+    'uni-long-2.glb': { x: 0.000, y: 1.4300, z: 1.7700 },
+    'uni-long-3.glb': { x: 0.000, y: 2.100, z: 3.7200 },
+    'uni-long-4.glb': { x: 0.000, y: 2.100, z: 3.7200 },
   },
   'uni-medium': {
-    '1_subsampled.glb': { x: 0.000, y: 1.500, z: 1.500 },
-    '1.glb': { x: 0.3500, y: 1.500, z: 5.100 },
-    '3_subsampled.glb': { x: 0.000, y: 1.400, z: 1.200 },
+    'uni-medium-1.glb': { x: 0.000, y: 1.500, z: 1.500 },
+    'uni-medium-2.glb': { x: 0.3500, y: 1.500, z: 5.100 },
+    'uni-medium-3.glb': { x: 0.000, y: 1.400, z: 1.200 },
+    'uni-medium-4.glb': { x: 0.000, y: 1.400, z: 1.200 },
   },
   'uni-short': {
-    '8.glb': { x: 0.000, y: 1.000, z: 0.1500 },
-    '13.glb': { x: 0.000, y: 1.000, z: 0.1500 },
-    '15.glb': { x: 0.000, y: 1.000, z: 0.5000 },
+    'uni-short-1.glb': { x: 0.000, y: 1.000, z: 0.1500 },
+    'uni-short-2.glb': { x: 0.000, y: 1.000, z: 0.1500 },
+    'uni-short-3.glb': { x: 0.000, y: 1.000, z: 0.5000 },
+    'uni-short-4.glb': { x: 0.000, y: 1.000, z: 0.5000 },
   },
   'vggt-long': {
-    '2.glb': { x: 0.000, y: 1.060, z: -0.0400 },
-    '5.glb': { x: 0.000, y: 1.100, z: -0.0500 },
-    '6.glb': { x: 0.000, y: 1.050, z: -0.1800 },
+    'vggt-long-1.glb': { x: 0.000, y: 1.060, z: -0.0400 },
+    'vggt-long-2.glb': { x: 0.000, y: 1.100, z: -0.0500 },
+    'vggt-long-3.glb': { x: 0.000, y: 1.050, z: -0.1800 },
+    'vggt-long-4.glb': { x: 0.000, y: 1.050, z: -0.1800 },
   },
   'vggt-medium': {
-    '1.glb': { x: 0.000, y: 1.040, z: 0.0800 },
-    '2.glb': { x: 0.000, y: 1.100, z: 0.1900 },
-    '3.glb': { x: 0.000, y: 1.000, z: -0.0500 },
+    'vggt-medium-1.glb': { x: 0.000, y: 1.040, z: 0.0800 },
+    'vggt-medium-2.glb': { x: 0.000, y: 1.100, z: 0.1900 },
+    'vggt-medium-3.glb': { x: 0.000, y: 1.000, z: -0.0500 },
+    'vggt-medium-4.glb': { x: 0.000, y: 1.000, z: -0.0500 },
   },
   'vggt-short': {
-    '1.glb': { x: 0.000, y: 1.160, z: 0.0700 },
-    '3.glb': { x: 0.000, y: 1.160, z: 0.2600 },
-    '4.glb': { x: 0.000, y: 1.070, z: 0.2300 },
+    'vggt-short-1.glb': { x: 0.000, y: 1.160, z: 0.0700 },
+    'vggt-short-2.glb': { x: 0.000, y: 1.160, z: 0.2600 },
+    'vggt-short-3.glb': { x: 0.000, y: 1.070, z: 0.2300 },
+    'vggt-short-4.glb': { x: 0.000, y: 1.070, z: 0.2300 },
   }
 };
 
@@ -146,53 +156,63 @@ const modelPositionPresets = {
 const modelRenderPresets = {
   'train': {
     'moge-medium-19.glb': { pointSize: 0.020, subsampleRate: 0.33, modelScale: 0.5, backgroundColor: '#8c8c8c' },
-    'uni-medium-10.glb': { pointSize: 0.003, subsampleRate: 0.06, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-long-15.glb': { pointSize: 0.003, subsampleRate: 0.06, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-short-24.glb': { pointSize: 0.003, subsampleRate: 0.06, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
     'vggt-medium-15.glb': { pointSize: 0.002, subsampleRate: 1.0, modelScale: 1, backgroundColor: '#8c8c8c', flipUpsideDown: true },
   },
   'moge-long': {
-    '2.glb': { pointSize: 0.01, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
-    '5.glb': { pointSize: 0.005, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
-    '6.glb': { pointSize: 0.005, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
+    'moge-long-1.glb': { pointSize: 0.01, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
+    'moge-long-2.glb': { pointSize: 0.005, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
+    'moge-long-3.glb': { pointSize: 0.005, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
+    'moge-long-4.glb': { pointSize: 0.005, subsampleRate: 0.58, modelScale: 1, backgroundColor: '#8c8c8c'},
   },
   'moge-medium': {
-    '1.glb': { pointSize: 0.004, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
-    '3.glb': { pointSize: 0.010, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
-    '14.glb': { pointSize: 0.014, subsampleRate: 0.54, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'moge-medium-1.glb': { pointSize: 0.004, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'moge-medium-2.glb': { pointSize: 0.010, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'moge-medium-3.glb': { pointSize: 0.014, subsampleRate: 0.54, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'moge-medium-4.glb': { pointSize: 0.014, subsampleRate: 0.54, modelScale: 1, backgroundColor: '#8c8c8c' },
   },
   'moge-short': {
-    '17.glb': { pointSize: 0.002, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
-    'pointcloud(1).glb': { pointSize: 0.003, subsampleRate: 0.51, modelScale: 0.5, backgroundColor: '#8c8c8c' },
-    'pointcloud(3).glb': { pointSize: 0.003, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'moge-short-1.glb': { pointSize: 0.002, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'moge-short-2.glb': { pointSize: 0.003, subsampleRate: 0.51, modelScale: 0.5, backgroundColor: '#8c8c8c' },
+    'moge-short-3.glb': { pointSize: 0.003, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'moge-short-4.glb': { pointSize: 0.003, subsampleRate: 0.51, modelScale: 1, backgroundColor: '#8c8c8c' },
   },
   'uni-long': {
-    '2_subsampled.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.01, backgroundColor: '#8c8c8c', faceCamera: true },
-    '5_subsampled.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
-    '8_subsampled.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-long-1.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.01, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-long-2.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-long-3.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-long-4.glb': { pointSize: 0.01, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
   },
   'uni-medium': {
-    '1_subsampled.glb': { pointSize: 0.006, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
-    '1.glb': { pointSize: 0.006, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
-    '3_subsampled.glb': { pointSize: 0.006, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-medium-1.glb': { pointSize: 0.006, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-medium-2.glb': { pointSize: 0.006, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-medium-3.glb': { pointSize: 0.006, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-medium-4.glb': { pointSize: 0.006, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
   },
   'uni-short': {
-    '8.glb': { pointSize: 0.001, subsampleRate: 0.08, modelScale: 1, backgroundColor: '#8c8c8c', faceCamera: true },
-    '13.glb': { pointSize: 0.002, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
-    '15.glb': { pointSize: 0.001, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-short-1.glb': { pointSize: 0.001, subsampleRate: 0.08, modelScale: 1, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-short-2.glb': { pointSize: 0.002, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-short-3.glb': { pointSize: 0.001, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
+    'uni-short-4.glb': { pointSize: 0.001, subsampleRate: 0.08, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
   },
   'vggt-long': {
-    '2.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
-    '5.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
-    '6.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-long-1.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-long-2.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-long-3.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-long-4.glb': { pointSize: 0.004, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
   },
   'vggt-medium': {
-    '1.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
-    '2.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
-    '3.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-medium-1.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-medium-2.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-medium-3.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-medium-4.glb': { pointSize: 0.002, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
   },
   'vggt-short': {
-    '1.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
-    '3.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
-    '4.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-short-1.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-short-2.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-short-3.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
+    'vggt-short-4.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 1, backgroundColor: '#8c8c8c' },
   }
 };
 
