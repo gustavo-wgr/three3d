@@ -5,7 +5,7 @@ import { OverlayManager } from "./ui/OverlayManager.js";
 import { AppController } from "./core/AppController.js";
 import { ModelLoader } from "./models/ModelLoader.js";
 import { GUIManager } from "./gui-manager.js";
-import { getModelUrls, getAvailableFolders, getModelPositionPreset, getModelRenderPreset } from "./config.js";
+import { getModelUrls, getAvailableFolders, getModelPositionPreset, getModelRenderPreset, deviceProfiles, setActiveDeviceProfile, getActiveDeviceProfile } from "./config.js";
 
 export class MainApplication {
   constructor() {
@@ -52,6 +52,9 @@ export class MainApplication {
       selectedFolder: this.selectedFolder,
       currentGlb: '',
       availableFolders: getAvailableFolders(),
+      availableHeadsets: deviceProfiles,
+      // Headset profile selection
+      headsetProfile: getActiveDeviceProfile(), // 'quest3' default
       toggleBackground: () => this.sceneSetup.toggleBackground(),
       switchToNextGlb: () => this.controller && this.controller.switchToNextGlb(),
       switchFolder: () => this.controller && this.controller.switchFolder(),
@@ -319,6 +322,21 @@ export class MainApplication {
           this.pointcloudManager.updatePointCloudPosition(nx, ny, nz);
         }
       }
+      ,
+      onHeadsetChange: (value) => {
+        try {
+          setActiveDeviceProfile(String(value));
+          // Reload current model with new presets
+          if (this.controller && typeof this.controller.reloadCurrentModel === 'function') {
+            this.controller.reloadCurrentModel();
+          } else if (this.pointcloudManager && this.params.currentGlb) {
+            const pos = this.modelPosition || { x: 0, y: 2.1, z: -3 };
+            this.pointcloudManager.loadGlbModel(this.params.currentGlb, this.params, () => {
+              this.pointcloudManager.updatePointCloudPosition(pos.x, pos.y, pos.z);
+            });
+          }
+        } catch (_) {}
+      }
     };
   }
 
@@ -356,8 +374,46 @@ export class MainApplication {
           } else {
             const dtMs = t - this.__lastXRTimeMs;
             this.__lastXRTimeMs = t;
+            // Compute per-eye viewport sizes (pixels per eye) if available
+            let perEye = null;
+            try {
+              // Prefer Three.js XR cameras' viewports (works across baseLayer and Layers API)
+              const xrMgr = this.sceneSetup && this.sceneSetup.renderer ? this.sceneSetup.renderer.xr : null;
+              const xrCamera = xrMgr && typeof xrMgr.getCamera === 'function' ? xrMgr.getCamera() : null;
+              const cams = xrCamera && Array.isArray(xrCamera.cameras) ? xrCamera.cameras : null;
+              if (cams && cams.length > 0) {
+                const leftCam = cams[0];
+                const rightCam = cams[1];
+                const lvp = leftCam && leftCam.viewport ? leftCam.viewport : null; // THREE.Vector4 x,y,z,w
+                const rvp = rightCam && rightCam.viewport ? rightCam.viewport : null;
+                perEye = {
+                  leftWidth: lvp ? lvp.z : undefined,
+                  leftHeight: lvp ? lvp.w : undefined,
+                  rightWidth: rvp ? rvp.z : undefined,
+                  rightHeight: rvp ? rvp.w : undefined
+                };
+              } else {
+                // Fallback to WebXR baseLayer viewport
+                const refSpace = xrMgr && typeof xrMgr.getReferenceSpace === 'function' ? xrMgr.getReferenceSpace() : null;
+                const session = frame.session || (xrMgr && typeof xrMgr.getSession === 'function' ? xrMgr.getSession() : null);
+                const baseLayer = session && session.renderState ? session.renderState.baseLayer : null;
+                const pose = refSpace ? frame.getViewerPose(refSpace) : null;
+                if (pose && baseLayer && Array.isArray(pose.views) && pose.views.length > 0 && typeof baseLayer.getViewport === 'function') {
+                  const leftView = pose.views.find(v => v.eye === 'left') || pose.views[0];
+                  const rightView = pose.views.find(v => v.eye === 'right') || pose.views[1];
+                  const lvp2 = leftView ? baseLayer.getViewport(leftView) : null;
+                  const rvp2 = rightView ? baseLayer.getViewport(rightView) : null;
+                  perEye = {
+                    leftWidth: lvp2 ? lvp2.width : undefined,
+                    leftHeight: lvp2 ? lvp2.height : undefined,
+                    rightWidth: rvp2 ? rvp2.width : undefined,
+                    rightHeight: rvp2 ? rvp2.height : undefined
+                  };
+                }
+              }
+            } catch (_) {}
             if (this.controller && typeof this.controller.onFrameTiming === 'function') {
-              this.controller.onFrameTiming(dtMs, true);
+              this.controller.onFrameTiming(dtMs, true, perEye);
             }
           }
         }

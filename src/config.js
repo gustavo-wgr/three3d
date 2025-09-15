@@ -13,6 +13,20 @@ const config = {
                  window.location.hostname.includes('localhost')
 };
 
+// ===== Device profile support (Quest 3 = default quality, Quest 2 = reduced) =====
+const deviceProfiles = ['quest3', 'quest2'];
+let activeDeviceProfile = 'quest3';
+
+function setActiveDeviceProfile(profile) {
+  if (deviceProfiles.includes(profile)) {
+    activeDeviceProfile = profile;
+  }
+}
+
+function getActiveDeviceProfile() {
+  return activeDeviceProfile;
+}
+
 // Desired folder order for UI lists (Experiment flow is controlled elsewhere)
 const folderOrder = [
   'train',
@@ -150,10 +164,10 @@ const modelPositionPresets = {
   }
 };
 
-// Optional per-model render presets
+// Per-device per-model render presets
 // Allows overriding default point size, sample rate, and model scale per GLB file
 // Keys are per-folder
-const modelRenderPresets = {
+const quest3ModelRenderPresets = {
   'train': {
     'moge-medium-19.glb': { pointSize: 0.015, subsampleRate: 0.64, modelScale: 1, backgroundColor: '#8c8c8c' },
     'uni-long-15.glb': { pointSize: 0.015, subsampleRate: 1, modelScale: 0.5, backgroundColor: '#8c8c8c', faceCamera: true },
@@ -215,6 +229,40 @@ const modelRenderPresets = {
     'vggt-short-4.glb': { pointSize: 0.003, subsampleRate: 1, modelScale: 2, backgroundColor: '#8c8c8c' },
   }
 };
+
+// Start Quest 2 presets as a derived copy of Quest 3 with reduced subsampleRate.
+// You can replace entries with precise values later.
+const quest2ModelRenderPresets = (() => {
+  try {
+    const copy = JSON.parse(JSON.stringify(quest3ModelRenderPresets));
+    const reduce = (v) => Math.max(0.0, Math.min(1.0, Number(v) * 0.5));
+    Object.keys(copy).forEach((folder) => {
+      const fm = copy[folder] || {};
+      Object.keys(fm).forEach((file) => {
+        if (fm[file] && isFinite(fm[file].subsampleRate)) {
+          fm[file].subsampleRate = reduce(fm[file].subsampleRate);
+        } else {
+          // If no subsample specified, set a conservative default for Quest 2
+          fm[file] = Object.assign({ subsampleRate: 0.5 }, fm[file] || {});
+        }
+      });
+    });
+    return copy;
+  } catch (_) {
+    return {};
+  }
+})();
+
+// Optional explicit overrides for Quest 2 for precise control per model
+// Shape: { [folder]: { [modelFileName]: { pointSize?, subsampleRate?, modelScale?, ... } } }
+const quest2Overrides = {};
+
+// Helper to set an override at runtime
+function setQuest2Override(folder, modelFileName, preset) {
+  if (!folder || !modelFileName || !preset) return;
+  if (!quest2Overrides[folder]) quest2Overrides[folder] = {};
+  quest2Overrides[folder][modelFileName] = Object.assign({}, quest2Overrides[folder][modelFileName] || {}, preset);
+}
 
 // Helper function to get model URLs based on selected folder
 function getModelUrls(selectedFolder = 'unik3d') {
@@ -298,10 +346,20 @@ function getModelPositionPreset(folder, modelFileName) {
 
 // Retrieve per-model render preset, if defined
 function getModelRenderPreset(folder, modelFileName) {
-  const folderMap = modelRenderPresets[folder];
+  const profile = getActiveDeviceProfile();
+  const source = (!profile || profile === 'quest3') ? quest3ModelRenderPresets : quest2ModelRenderPresets;
+  const folderMap = source[folder];
   if (!folderMap) return null;
-  return folderMap[modelFileName] || null;
+  const base = folderMap[modelFileName] || null;
+  if (profile === 'quest2') {
+    const fo = quest2Overrides[folder];
+    const ov = fo ? fo[modelFileName] : null;
+    if (ov && typeof ov === 'object') {
+      return Object.assign({}, base || {}, ov);
+    }
+  }
+  return base;
 }
 
 // Export for ES6 modules
-export { config, getModelUrls, getBlockModelUrls, getAvailableFolders, modelFolders, blockModelSelections, modelPositionPresets, getModelPositionPreset, modelRenderPresets, getModelRenderPreset, folderOrder };
+export { config, getModelUrls, getBlockModelUrls, getAvailableFolders, modelFolders, blockModelSelections, modelPositionPresets, getModelPositionPreset, quest3ModelRenderPresets, quest2ModelRenderPresets, getModelRenderPreset, folderOrder, deviceProfiles, setActiveDeviceProfile, getActiveDeviceProfile, setQuest2Override, quest2Overrides };

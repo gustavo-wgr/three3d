@@ -30,6 +30,11 @@ export class AppController {
     this.__fpsFrameCount = 0;
     this.__fpsDtSumMs = 0;
 
+    // Per-eye resolution aggregation per block (XR frames only)
+    this.__resLeftPixelSum = 0;   // sum of width*height per frame for left eye
+    this.__resRightPixelSum = 0;  // sum of width*height per frame for right eye
+    this.__resSampleCount = 0;    // number of XR frames sampled
+
     // Bind
     this.onXRStart = this.onXRStart.bind(this);
     this.onXREnd = this.onXREnd.bind(this);
@@ -227,11 +232,26 @@ export class AppController {
         this.__fpsFrameCount = 0;
         this.__fpsDtSumMs = 0;
         this.__fpsTrackingEnabled = true;
+        // reset per-eye resolution accumulators at block start
+        this.__resLeftPixelSum = 0;
+        this.__resRightPixelSum = 0;
+        this.__resSampleCount = 0;
       }
       if (this.autoSwitchEnabled && this.scene && this.scene.isInXRSession) {
         this.startAutoSwitchTimer();
       }
     });
+  }
+
+  // Reloads the currently selected model, re-applying presets (used when headset profile changes)
+  reloadCurrentModel() {
+    try {
+      if (!this.glbFiles || this.glbFiles.length === 0) return;
+      this.params.currentGlb = this.glbFiles[this.currentGlbIndex] || '';
+      if (this.params.currentGlb) {
+        this.loadCurrentModel();
+      }
+    } catch (_) {}
   }
 
   switchToNextGlb() {
@@ -263,7 +283,8 @@ export class AppController {
     this.loadCurrentModel();
   }
 
-  handleSurveySubmit() {
+  handleSurveySubmit(payload) {
+    try { console.log('[Survey] Answers:', payload); } catch (_) {}
     const isLastFolder = this.currentBlockIndex >= this.blocks.length - 1;
     console.log('[Flow] handleSurveySubmit: isLastFolder=', isLastFolder, 'blockIndex=', this.currentBlockIndex, 'folder=', this.selectedFolder);
     if (!isLastFolder) {
@@ -373,7 +394,7 @@ export class AppController {
   }
 
   // ===== FPS tracking API =====
-  onFrameTiming(dtMs, isXRFrame = false) {
+  onFrameTiming(dtMs, isXRFrame = false, perEye = null) {
     try {
       if (!this.__fpsTrackingEnabled || this.state !== 'block') return;
       // Only count XR-presented frames for headset FPS
@@ -381,6 +402,20 @@ export class AppController {
       if (!(dtMs >= 0)) return;
       this.__fpsFrameCount += 1;
       this.__fpsDtSumMs += dtMs;
+      // Aggregate per-eye resolution if provided
+      if (perEye && typeof perEye === 'object') {
+        const lw = Number(perEye.leftWidth);
+        const lh = Number(perEye.leftHeight);
+        const rw = Number(perEye.rightWidth);
+        const rh = Number(perEye.rightHeight);
+        const leftPixels = (isFinite(lw) && isFinite(lh) && lw > 0 && lh > 0) ? (lw * lh) : 0;
+        const rightPixels = (isFinite(rw) && isFinite(rh) && rw > 0 && rh > 0) ? (rw * rh) : 0;
+        if (leftPixels > 0 || rightPixels > 0) {
+          this.__resLeftPixelSum += leftPixels;
+          this.__resRightPixelSum += rightPixels;
+          this.__resSampleCount += 1;
+        }
+      }
     } catch (_) {}
   }
 
@@ -391,12 +426,31 @@ export class AppController {
       const frames = this.__fpsFrameCount;
       const avgFps = totalSeconds > 0 ? (frames / totalSeconds) : 0;
       const blockNumber = this.currentFolderIndex + 1;
-      console.log(`[Perf] Block ${blockNumber} avg FPS: ${avgFps.toFixed(2)}`);
+      // Compute average pixels per eye (per XR frame) if we have samples
+      let avgLeftPixels = 0;
+      let avgRightPixels = 0;
+      if (this.__resSampleCount > 0) {
+        avgLeftPixels = this.__resLeftPixelSum / this.__resSampleCount;
+        avgRightPixels = this.__resRightPixelSum / this.__resSampleCount;
+      }
+      // Prefer symmetric resolutions if both eyes available; still report both
+      const summary = {
+        block: blockNumber,
+        avgFps: Number(avgFps.toFixed(2)),
+        avgPixelsPerEye: {
+          left: Math.round(avgLeftPixels),
+          right: Math.round(avgRightPixels)
+        }
+      };
+      console.log('[Perf]', JSON.stringify(summary));
     } catch (_) {}
     // Reset tracking state
     this.__fpsTrackingEnabled = false;
     this.__fpsFrameCount = 0;
     this.__fpsDtSumMs = 0;
+    this.__resLeftPixelSum = 0;
+    this.__resRightPixelSum = 0;
+    this.__resSampleCount = 0;
   }
 }
 

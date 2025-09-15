@@ -223,11 +223,13 @@ export class SceneManager {
       const style = document.createElement('style');
       style.id = 'start-explanation-styles';
       style.textContent = `
-        #StartExplanation { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); bottom: auto; width: min(1000px, 90vw); padding: 24px 26px; color: #e9edf7; text-align: center; font-size: 40px; line-height: 1.6; z-index: 9999; pointer-events: none; }
-        #StartExplanation .sx-card { display: inline-block; background: radial-gradient(1000px 700px at 50% 30%, rgba(35,38,48,0.95), rgba(16,18,24,0.92)); border: 1px solid rgba(255,255,255,0.10); border-radius: 24px; padding: 28px 32px; box-shadow: 0 28px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06); }
-        #StartExplanation .sx-title { font-weight: 900; color: #ffffff; margin-bottom: 14px; font-size: 44px; letter-spacing: 0.4px; text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
+        #StartExplanation { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -58%); bottom: auto; width: min(900px, 88vw); padding: 22px 24px; color: #e9edf7; text-align: center; font-size: 34px; line-height: 1.5; z-index: 9999; pointer-events: none; }
+        #StartExplanation .sx-card { display: inline-block; background: radial-gradient(1000px 700px at 50% 30%, rgba(35,38,48,0.95), rgba(16,18,24,0.92)); border: 1px solid rgba(255,255,255,0.10); border-radius: 24px; padding: 22px 24px; box-shadow: 0 28px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06); }
+        #StartExplanation .sx-title { font-weight: 900; color: #ffffff; margin-bottom: 12px; font-size: 40px; letter-spacing: 0.4px; text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
         #StartExplanation .sx-text { color: #d7deec; text-shadow: 0 1px 0 rgba(0,0,0,0.2); }
-        @media (max-width: 640px) { #StartExplanation { font-size: 28px; } #StartExplanation .sx-title { font-size: 32px; } }
+        @media (max-width: 640px) { #StartExplanation { font-size: 26px; transform: translate(-50%, -62%); } #StartExplanation .sx-title { font-size: 32px; } }
+        @media (max-height: 720px) { #StartExplanation { font-size: 26px; transform: translate(-50%, -62%); } #StartExplanation .sx-title { font-size: 32px; } }
+        @media (hover: none) and (pointer: coarse) { #StartExplanation { font-size: 28px; transform: translate(-50%, -62%); } #StartExplanation .sx-title { font-size: 34px; } }
       `;
       document.head.appendChild(style);
     } catch (_) {}

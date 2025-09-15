@@ -90,6 +90,18 @@ export class GUIManager {
   setupGLBOptions() {
     const glbFolder = this.gui.addFolder("GLB Options");
 
+    // Headset profile selection (Quest 3 default)
+    if (Array.isArray(this.params.availableHeadsets)) {
+      glbFolder
+        .add(this.params, "headsetProfile", this.params.availableHeadsets)
+        .name("Headset")
+        .onChange((value) => {
+          if (this.callbacks.onHeadsetChange) {
+            this.callbacks.onHeadsetChange(value);
+          }
+        });
+    }
+
     // Add folder selection
     const folderController = glbFolder
       .add(this.params, "selectedFolder", this.params.availableFolders)
