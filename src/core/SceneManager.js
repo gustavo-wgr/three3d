@@ -63,10 +63,21 @@ export class SceneManager {
         if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setReferenceSpaceType === 'function') {
           this.renderer.xr.setReferenceSpaceType('local-floor');
         }
-        const session = await navigator.xr.requestSession('immersive-vr', this.sessionInit || { requiredFeatures: ["hand-tracking"], optionalFeatures: ["local-floor", "local"] });
-        if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setSession === 'function') {
-          await this.renderer.xr.setSession(session);
-          return true;
+        // Prefer immersive-ar when passthrough is desired (no opaque backgrounds enabled)
+        const preferAR = !(this.xrBlackBackgroundEnabled || this.coloredBackgroundEnabled);
+        const tryModes = preferAR ? ['immersive-ar', 'immersive-vr'] : ['immersive-vr', 'immersive-ar'];
+        for (const mode of tryModes) {
+          try {
+            const session = await navigator.xr.requestSession(mode, this.sessionInit || { requiredFeatures: ["hand-tracking"], optionalFeatures: ["local-floor", "local"] });
+            if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setSession === 'function') {
+              await this.renderer.xr.setSession(session);
+              try { console.log('[XRBG] started session mode=', mode, 'envBlend=', session && session.environmentBlendMode); } catch (_) {}
+              return true;
+            }
+          } catch (e) {
+            try { console.warn('[XRBG] requestSession failed for', mode, e); } catch (_) {}
+            continue;
+          }
         }
         return false;
       }
@@ -80,6 +91,7 @@ export class SceneManager {
         const session = await navigator.xr.requestSession('immersive-vr', fallbackInit);
         if (this.renderer && this.renderer.xr && typeof this.renderer.xr.setSession === 'function') {
           await this.renderer.xr.setSession(session);
+          try { console.log('[XRBG] fallback started session mode= immersive-vr envBlend=', session && session.environmentBlendMode); } catch (_) {}
           return true;
         }
       } catch (_) {}
@@ -99,6 +111,8 @@ export class SceneManager {
   createBackgroundSphere() {
     const geometry = new THREE.SphereGeometry(50, 8, 8);
     const material = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 1.0 });
+    // Avoid depth-only occlusion when using passthrough
+    material.depthWrite = false;
     this.backgroundSphere = new THREE.Mesh(geometry, material);
     this.backgroundSphere.position.set(0, 1.6, 0);
     this.scene.add(this.backgroundSphere);
@@ -107,12 +121,15 @@ export class SceneManager {
   setupXREvents() {
     this.renderer.xr.addEventListener('sessionstart', () => {
       this.isInXRSession = true;
-      if (this.coloredBackgroundEnabled) {
-        this.backgroundSphere.material.color.copy(this.coloredBackgroundColor);
-        this.backgroundSphere.material.opacity = 1.0;
-      } else {
-        this.backgroundSphere.material.opacity = this.xrBlackBackgroundEnabled ? 1.0 : 0.0;
-      }
+      try {
+        const gl = this.renderer && this.renderer.getContext ? this.renderer.getContext() : null;
+        const attrs = gl && gl.getContextAttributes ? gl.getContextAttributes() : {};
+        console.log('[XRBG] sessionstart: xrBlack=', this.xrBlackBackgroundEnabled, 'colored=', this.coloredBackgroundEnabled, 'webgl.alpha=', !!(attrs && attrs.alpha));
+      } catch (_) {}
+      this.applyXRBackgroundMode(false);
+      // Some runtimes override clear state on first frame; re-assert shortly after start
+      try { setTimeout(() => this.applyXRBackgroundMode(false), 0); } catch (_) {}
+      try { setTimeout(() => this.applyXRBackgroundMode(false), 50); } catch (_) {}
       console.log('XR session started - scene');
       this.emit('xrstart');
       try { this.setXRButtonLabel('End Experiment'); } catch (_) {}
@@ -120,7 +137,9 @@ export class SceneManager {
     });
     this.renderer.xr.addEventListener('sessionend', () => {
       this.isInXRSession = false;
+      try { this.renderer.setClearAlpha(1.0); } catch (_) {}
       this.backgroundSphere.material.opacity = this.isBackgroundVisible ? 1.0 : 0.0;
+      try { console.log('[XRBG] sessionend: restored opaque clear alpha=1.0, sphereVisible=', this.isBackgroundVisible); } catch (_) {}
       console.log('XR session ended - scene');
       this.emit('xrend');
       try { this.setXRButtonLabel('Start Experiment'); } catch (_) {}
@@ -233,6 +252,13 @@ export class SceneManager {
         document.body.appendChild(wrap);
         this.startExplanationEl = wrap;
       } else {
+        // Reset to default Welcome message when showing again
+        try {
+          const title = this.startExplanationEl.querySelector('.sx-title');
+          const text = this.startExplanationEl.querySelector('.sx-text');
+          if (title) title.textContent = 'Welcome';
+          if (text) text.textContent = 'In this experiment you will be asked to evaluate 3D models. The models are divided in blocks, for a total of 10 blocks. The experiment takes about 10 minutes. After certain blocks, you will be asked to fill out a form. Feel free to ask any questions you may have now. When you are ready press the button below.';
+        } catch (_) {}
         this.startExplanationEl.style.display = 'block';
       }
     } catch (_) {}
@@ -240,6 +266,25 @@ export class SceneManager {
 
   hideStartExplanation() {
     try { if (this.startExplanationEl) this.startExplanationEl.style.display = 'none'; } catch (_) {}
+  }
+
+  // Update the StartExplanation overlay content
+  setStartExplanationContent(titleText, bodyText) {
+    try {
+      if (!this.startExplanationEl) return;
+      const title = this.startExplanationEl.querySelector('.sx-title');
+      const text = this.startExplanationEl.querySelector('.sx-text');
+      if (title) title.textContent = String(titleText == null ? '' : titleText);
+      if (text) text.textContent = String(bodyText == null ? '' : bodyText);
+    } catch (_) {}
+  }
+
+  // Show a transient "Loading VR..." message during session resume
+  showLoadingVR() {
+    try {
+      this.createOrShowStartExplanation();
+      this.setStartExplanationContent('Loading VR..', '');
+    } catch (_) {}
   }
 
   setupLighting() {
@@ -273,27 +318,52 @@ export class SceneManager {
 
   setXRBlackBackgroundEnabled(enabled) {
     this.xrBlackBackgroundEnabled = !!enabled;
-    if (this.isInXRSession && this.backgroundSphere && this.backgroundSphere.material) {
-      if (this.coloredBackgroundEnabled) {
-        this.backgroundSphere.material.color.copy(this.coloredBackgroundColor);
-        this.backgroundSphere.material.opacity = 1.0;
-      } else {
-        this.backgroundSphere.material.opacity = this.xrBlackBackgroundEnabled ? 1.0 : 0.0;
-      }
-    }
+    try { console.log('[XRBG] setXRBlackBackgroundEnabled:', this.xrBlackBackgroundEnabled); } catch (_) {}
+    this.applyXRBackgroundMode(false);
   }
 
   setColoredBackgroundEnabled(enabled, color) {
     this.coloredBackgroundEnabled = !!enabled;
     if (typeof color === 'string') { try { this.coloredBackgroundColor.set(color); } catch (_) {} }
-    if (this.backgroundSphere && this.backgroundSphere.material) {
-      if (this.coloredBackgroundEnabled) {
-        this.backgroundSphere.material.color.copy(this.coloredBackgroundColor);
-        this.backgroundSphere.material.opacity = 1.0;
-      } else if (this.isInXRSession) {
-        this.backgroundSphere.material.opacity = this.xrBlackBackgroundEnabled ? 1.0 : 0.0;
+    try { console.log('[XRBG] setColoredBackgroundEnabled:', this.coloredBackgroundEnabled, 'color=', this.coloredBackgroundColor && this.coloredBackgroundColor.getHexString && this.coloredBackgroundColor.getHexString()); } catch (_) {}
+    this.applyXRBackgroundMode(false);
+  }
+
+  // Ensure passthrough unless XR Black or Colored background is enabled
+  applyXRBackgroundMode(silent = true) {
+    try {
+      const forceOpaque = !!this.coloredBackgroundEnabled || !!this.xrBlackBackgroundEnabled;
+      if (!silent) { try { console.log('[XRBG] apply: inXR=', this.isInXRSession, 'forceOpaque=', forceOpaque, 'xrBlack=', this.xrBlackBackgroundEnabled, 'colored=', this.coloredBackgroundEnabled); } catch (_) {} }
+      if (this.isInXRSession) {
+        if (this.renderer) {
+          try { if (typeof this.renderer.setClearAlpha === 'function') { this.renderer.setClearAlpha(forceOpaque ? 1.0 : 0.0); if (!silent) console.log('[XRBG] setClearAlpha ->', forceOpaque ? 1.0 : 0.0); } } catch (_) {}
+          try { this.renderer.setClearColor(0x000000, forceOpaque ? 1.0 : 0.0); if (!silent) console.log('[XRBG] setClearColor alpha ->', forceOpaque ? 1.0 : 0.0); } catch (_) {}
+        }
+        if (this.backgroundSphere && this.backgroundSphere.material) {
+          // Hide sphere entirely for passthrough to prevent any depth occlusion
+          this.backgroundSphere.visible = !!forceOpaque;
+          if (this.coloredBackgroundEnabled) {
+            this.backgroundSphere.material.color.copy(this.coloredBackgroundColor);
+            this.backgroundSphere.material.opacity = 1.0;
+          } else if (this.xrBlackBackgroundEnabled) {
+            this.backgroundSphere.material.color.set(0x000000);
+            this.backgroundSphere.material.opacity = 1.0;
+          } else {
+            this.backgroundSphere.material.opacity = 0.0;
+          }
+          if (!silent) { try { console.log('[XRBG] sphere visible=', this.backgroundSphere.visible, 'opacity=', this.backgroundSphere.material.opacity); } catch (_) {} }
+        }
+      } else {
+        // Outside XR, restore default alpha; sphere visibility controlled by isBackgroundVisible
+        if (this.renderer) {
+          try { if (typeof this.renderer.setClearAlpha === 'function') { this.renderer.setClearAlpha(1.0); if (!silent) console.log('[XRBG] non-XR setClearAlpha -> 1.0'); } } catch (_) {}
+          try { this.renderer.setClearColor(0x000000, 1.0); if (!silent) console.log('[XRBG] non-XR setClearColor alpha -> 1.0'); } catch (_) {}
+        }
+        if (this.backgroundSphere) {
+          this.backgroundSphere.visible = !!this.isBackgroundVisible;
+        }
       }
-    }
+    } catch (_) {}
   }
 
   // ===== In-VR Block Message (Sprite) =====

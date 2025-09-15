@@ -35,7 +35,7 @@ export class MainApplication {
     this.glbFiles = [];
     this.currentGlbIndex = 0;
     // 10s per model
-    this.autoSwitchDelayMs = 200;
+    this.autoSwitchDelayMs = 3000;
     
     // Parameters for GUI
     this.params = {
@@ -86,6 +86,8 @@ export class MainApplication {
 
     // Bind handlers
     this.onKeyDown = this.onKeyDown.bind(this);
+    // XR frame timing state
+    this.__lastXRTimeMs = null;
   }
 
   async initialize() {
@@ -334,15 +336,33 @@ export class MainApplication {
 
 
   animate() {
-    this.sceneSetup.renderer.setAnimationLoop(this.render.bind(this));
+    this.sceneSetup.renderer.setAnimationLoop((time, frame) => this.render(time, frame));
   }
 
-  render() {
+  render(time, frame) {
     // Update time for animations (e.g., morphing)
     this.pointcloudManager.updateTime();
 
     // Render the scene
     this.sceneSetup.render();
+
+    // Report XR frame timing (headset) to controller for FPS tracking
+    try {
+      if (frame) {
+        const t = Number(time);
+        if (!isNaN(t)) {
+          if (this.__lastXRTimeMs == null) {
+            this.__lastXRTimeMs = t;
+          } else {
+            const dtMs = t - this.__lastXRTimeMs;
+            this.__lastXRTimeMs = t;
+            if (this.controller && typeof this.controller.onFrameTiming === 'function') {
+              this.controller.onFrameTiming(dtMs, true);
+            }
+          }
+        }
+      }
+    } catch (_) {}
   }
 }
 

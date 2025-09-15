@@ -25,6 +25,11 @@ export class AppController {
     this.state = 'idle'; // idle | block | survey | attrak | done
     this.onPositionComputed = typeof onPositionComputed === 'function' ? onPositionComputed : null;
 
+    // FPS tracking per block
+    this.__fpsTrackingEnabled = false;
+    this.__fpsFrameCount = 0;
+    this.__fpsDtSumMs = 0;
+
     // Bind
     this.onXRStart = this.onXRStart.bind(this);
     this.onXREnd = this.onXREnd.bind(this);
@@ -126,6 +131,8 @@ export class AppController {
     }
     // If a non-train block just ended, show survey now
     console.log('[Flow] onXREnd: state=', this.state, 'pendingSurvey=', this.pendingSurvey, 'folder=', this.selectedFolder, 'blockIndex=', this.currentBlockIndex);
+    // Aggressively free model resources before showing survey to reduce lag
+    try { this.models && typeof this.models.disposeAll === 'function' ? this.models.disposeAll() : (this.models && this.models.clearPointCloud && this.models.clearPointCloud()); } catch (e) { try { console.warn('[Flow] dispose before survey failed', e); } catch (_) {} }
     if (this.pendingSurvey && this.state === 'block') {
       this.state = 'survey';
       const contextProvider = () => ({
@@ -215,6 +222,12 @@ export class AppController {
       this.models.updatePointCloudPosition(position.x, position.y, position.z);
       this.models.setFlipUpsideDown(this.params.flipUpsideDown);
       this.models.setMirrorZ(this.params.mirrorZ);
+      // Start FPS tracking at the first model of the block (exclude HUD delay)
+      if (this.currentGlbIndex === 0) {
+        this.__fpsFrameCount = 0;
+        this.__fpsDtSumMs = 0;
+        this.__fpsTrackingEnabled = true;
+      }
       if (this.autoSwitchEnabled && this.scene && this.scene.isInXRSession) {
         this.startAutoSwitchTimer();
       }
@@ -225,6 +238,8 @@ export class AppController {
     const atEnd = this.currentGlbIndex >= this.glbFiles.length - 1;
     console.log('[Flow] switchToNextGlb: atEnd=', atEnd, 'inXR=', !!(this.scene && this.scene.isInXRSession), 'folder=', this.selectedFolder, 'block=', this.currentBlockIndex, 'modelIndex=', this.currentGlbIndex);
     if (atEnd) {
+      // Finalize and log FPS for the completed block
+      this.__finalizeAndLogBlockFps();
       if (this.scene && this.scene.isInXRSession) {
         if (this.selectedFolder === 'train') {
           console.log('[Flow] End of train block inside XR; advancing to next block in same session');
@@ -274,14 +289,25 @@ export class AppController {
       this.glbFiles = nextBlock.models || [];
       this.currentGlbIndex = 0;
       this.params.currentGlb = this.glbFiles[0] || '';
-      this.models.clearPointCloud();
+      // Ensure prior block model resources are fully released before resuming
+      try { this.models && typeof this.models.disposeAll === 'function' ? this.models.disposeAll() : (this.models && this.models.clearPointCloud && this.models.clearPointCloud()); } catch (_) {}
       console.log('[Flow] Prepared next block: folder=', this.selectedFolder, 'models=', this.glbFiles);
       // Resume XR immediately within the same user activation (submit click)
-      try { if (this.scene && this.scene.renderer && !this.scene.renderer.xr.isPresenting) { console.log('[Flow] Starting XR session after survey submit'); this.scene.startXRSession(); } } catch (e) { console.warn('[Flow] Failed to start XR after survey submit', e); }
+      try {
+        if (this.scene && this.scene.renderer && !this.scene.renderer.xr.isPresenting) {
+          // Show loading indicator in the web page during the brief handoff delay
+          try { if (typeof this.scene.showLoadingVR === 'function') this.scene.showLoadingVR(); } catch (_) {}
+          console.log('[Flow] Starting XR session after survey submit');
+          // Re-apply background mode based on current GUI params to ensure passthrough unless toggled
+          try { if (typeof this.scene.setXRBlackBackgroundEnabled === 'function') { console.log('[XRBG] (controller) applying xrBlack=', !!this.params.xrBlackBackground); this.scene.setXRBlackBackgroundEnabled(!!this.params.xrBlackBackground); } } catch (_) {}
+          try { if (typeof this.scene.setColoredBackgroundEnabled === 'function') { console.log('[XRBG] (controller) applying colored=', !!this.params.coloredBackground, 'color=', this.params.backgroundColorPicker); this.scene.setColoredBackgroundEnabled(!!this.params.coloredBackground, this.params.backgroundColorPicker); } } catch (_) {}
+          this.scene.startXRSession();
+        }
+      } catch (e) { console.warn('[Flow] Failed to start XR after survey submit', e); }
     } else {
       // Final: move to attrak
       this.state = 'attrak';
-      this.models.clearPointCloud();
+      try { this.models && typeof this.models.disposeAll === 'function' ? this.models.disposeAll() : (this.models && this.models.clearPointCloud && this.models.clearPointCloud()); } catch (_) {}
       if (this.scene && this.scene.isInXRSession) {
         console.log('[Flow] Last block: ending XR then showing AttrakDiff');
         this.scene.endXRSession();
@@ -298,7 +324,7 @@ export class AppController {
     this.state = 'block';
     const isLastFolder = this.currentBlockIndex >= this.blocks.length - 1;
     if (isLastFolder) {
-      this.models.clearPointCloud();
+      try { this.models && typeof this.models.disposeAll === 'function' ? this.models.disposeAll() : (this.models && this.models.clearPointCloud && this.models.clearPointCloud()); } catch (_) {}
       this.state = 'attrak';
       setTimeout(() => { console.log('[Attrak] Showing AttrakDiff at end of last block (same session)'); this.ui.showAttrakDiff(); }, 600);
       return;
@@ -344,6 +370,33 @@ export class AppController {
     // Final thank-you page after AttrakDiff
     try { this.state = 'done'; } catch (_) {}
     try { this.ui.showThankYou && this.ui.showThankYou(); } catch (_) {}
+  }
+
+  // ===== FPS tracking API =====
+  onFrameTiming(dtMs, isXRFrame = false) {
+    try {
+      if (!this.__fpsTrackingEnabled || this.state !== 'block') return;
+      // Only count XR-presented frames for headset FPS
+      if (!isXRFrame) return;
+      if (!(dtMs >= 0)) return;
+      this.__fpsFrameCount += 1;
+      this.__fpsDtSumMs += dtMs;
+    } catch (_) {}
+  }
+
+  __finalizeAndLogBlockFps() {
+    try {
+      if (!this.__fpsTrackingEnabled) return;
+      const totalSeconds = this.__fpsDtSumMs / 1000.0;
+      const frames = this.__fpsFrameCount;
+      const avgFps = totalSeconds > 0 ? (frames / totalSeconds) : 0;
+      const blockNumber = this.currentFolderIndex + 1;
+      console.log(`[Perf] Block ${blockNumber} avg FPS: ${avgFps.toFixed(2)}`);
+    } catch (_) {}
+    // Reset tracking state
+    this.__fpsTrackingEnabled = false;
+    this.__fpsFrameCount = 0;
+    this.__fpsDtSumMs = 0;
   }
 }
 

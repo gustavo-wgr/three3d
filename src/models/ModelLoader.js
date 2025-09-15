@@ -33,6 +33,27 @@ export class ModelLoader {
     }
   }
 
+  // Aggressive cleanup: frees all geometries and materials
+  disposeAll() {
+    try {
+      // Remove object and dispose its resources
+      this.clearPointCloud();
+      // Dispose any kept references to original/full geometries used for resampling
+      if (this.originalGeometry) {
+        try { this.originalGeometry.dispose(); } catch (_) {}
+      }
+      if (this.fullGeometry && this.fullGeometry !== this.originalGeometry) {
+        try { this.fullGeometry.dispose(); } catch (_) {}
+      }
+      this.originalGeometry = null;
+      this.fullGeometry = null;
+      this.material = null;
+      this.geometry = null;
+    } catch (e) {
+      console.warn('[ModelLoader] Failed to disposeAll', e);
+    }
+  }
+
   getPointCloud() {
     return this.object3D;
   }
