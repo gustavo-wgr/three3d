@@ -255,7 +255,47 @@ const quest2ModelRenderPresets = (() => {
 
 // Optional explicit overrides for Quest 2 for precise control per model
 // Shape: { [folder]: { [modelFileName]: { pointSize?, subsampleRate?, modelScale?, ... } } }
-const quest2Overrides = {};
+const quest2Overrides = {
+  'train': {
+    'vggt-medium-15.glb': { subsampleRate: 1 },
+    'uni-long-15.glb': { pointSize: 0.016744548286604363, subsampleRate: 1 },
+    'uni-short-24.glb': { pointSize: 0.001, subsampleRate: 0.06 }
+  },
+  'moge-medium': {
+    'moge-medium-1.glb': { pointSize: 0.008747317410868812, subsampleRate: 0.49 },
+    'moge-medium-3.glb': { pointSize: 0.014640013845621323, subsampleRate: 0.425 }
+  },
+  'uni-long': {
+    'uni-long-1.glb': { pointSize: 0.009378677743163723, subsampleRate: 1 },
+    'uni-long-3.glb': { pointSize: 0.006, subsampleRate: 0.05 },
+    'uni-long-4.glb': { pointSize: 0.010851851851851852, subsampleRate: 1 }
+  },
+  'uni-medium': {
+    'uni-medium-1.glb': { pointSize: 0.006, subsampleRate: 1 },
+    'uni-medium-2.glb': { pointSize: 0.008, subsampleRate: 0.98 }
+  },
+  'uni-short': {
+    'uni-short-1.glb': { pointSize: 0.003, subsampleRate: 0.99 }
+  },
+  'vggt-long': {
+    'vggt-long-1.glb': { subsampleRate: 1 },
+    'vggt-long-2.glb': { subsampleRate: 1 },
+    'vggt-long-3.glb': { subsampleRate: 1 },
+    'vggt-long-4.glb': { subsampleRate: 1 }
+  },
+  'vggt-medium': {
+    'vggt-medium-1.glb': { subsampleRate: 1 },
+    'vggt-medium-2.glb': { subsampleRate: 1 },
+    'vggt-medium-3.glb': { subsampleRate: 1 },
+    'vggt-medium-4.glb': { subsampleRate: 1 }
+  },
+  'vggt-short': {
+    'vggt-short-1.glb': { subsampleRate: 1 },
+    'vggt-short-2.glb': { subsampleRate: 1 },
+    'vggt-short-3.glb': { subsampleRate: 1 },
+    'vggt-short-4.glb': { subsampleRate: 1 }
+  }
+};
 
 // Helper to set an override at runtime
 function setQuest2Override(folder, modelFileName, preset) {

@@ -73,11 +73,26 @@ export class OverlayManager {
 
     (questions || []).forEach((q, idx) => {
       const row = this.el('div', 'om-row');
-      const label = this.el('label', 'om-label', `${q.text || q.key || 'Question'} `);
+      // Big category headline (e.g., QUALITY, AUTHENTICITY)
+      const category = this.el('div', 'om-cat', String((q.summary || q.key || '').toString().toUpperCase()));
+      // Smaller subtitle with the question text
+      const subtitle = this.el('div', 'om-qtext', q.text || q.key || 'Question');
+      // Left/Right labels properly aligned
+      const pair = this.el('div', 'om-pair');
+      const leftEl = this.el('span', 'om-left', q.left || 'low');
+      const rightEl = this.el('span', 'om-right', q.right || 'high');
+      pair.appendChild(leftEl);
+      pair.appendChild(rightEl);
+      // Choices
       const { element: chooserEl, input } = this.createScaleInput(1, 7, null);
       input.name = q.key || `q${idx+1}`;
-      const hint = this.el('div', 'om-hint', `${q.left || 'low'} — ${q.right || 'high'}`);
-      row.appendChild(label); row.appendChild(chooserEl); row.appendChild(hint);
+      // Compose
+      const head = this.el('div', 'om-head');
+      head.appendChild(category);
+      head.appendChild(subtitle);
+      row.appendChild(head);
+      row.appendChild(chooserEl);
+      row.appendChild(pair);
       form.appendChild(row);
       fields.push(input);
     });
@@ -144,8 +159,8 @@ export class OverlayManager {
       pair.appendChild(rightEl);
       const { element: chooserEl, input } = this.createScaleInput(1, 7, null);
       input.name = s.key || `a${idx+1}`;
-      row.appendChild(pair);
       row.appendChild(chooserEl);
+      row.appendChild(pair);
       form.appendChild(row);
       fields.push(input);
     });
@@ -247,6 +262,8 @@ export class OverlayManager {
     const style = document.createElement('style');
     style.id = 'om-styles';
     style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+      .om-container, .om-container * { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'; }
       .om-container { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 99999; }
       .om-container::before { content: ''; position: absolute; inset: 0; background: radial-gradient(1200px 800px at 50% 50%, rgba(40,40,52,0.9), rgba(10,10,14,0.96)); backdrop-filter: blur(5px); }
       .om-title { position: relative; color: #fff; font-size: 38px; font-weight: 800; margin-bottom: 20px; text-align: center; letter-spacing: 0.6px; text-shadow: 0 1px 0 rgba(0,0,0,0.3); }
@@ -256,8 +273,8 @@ export class OverlayManager {
       .om-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 18px; }
       .om-label { color: #f6f7fb; font-size: 27px; font-weight: 900; line-height: 1.35; }
       .om-sub { font-size: 22px; color: #cfd6e6; margin-top: -10px; margin-bottom: 16px; }
-      .om-pair { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
-      .om-left { color: #b3bac9; font-size: 21px; font-weight: 800; }
+      .om-pair { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 10px; }
+      .om-left { color: #b3bac9; font-size: 21px; font-weight: 800; justify-self: start; }
       .om-right { color: #b3bac9; font-size: 21px; font-weight: 800; justify-self: end; }
       .om-actions { display: flex; justify-content: center; gap: 18px; margin-top: 18px; }
       .om-btn { cursor: pointer; padding: 18px 26px; border-radius: 18px; background: #5b7cfa; color: #fff; border: none; font-weight: 900; letter-spacing: 0.4px; font-size: 24px; box-shadow: 0 16px 30px rgba(91,124,250,0.45); }
@@ -272,6 +289,11 @@ export class OverlayManager {
       /* Survey-specific readability tweaks */
       .om-form.survey .om-hint { color: #e3e8f5; font-size: 20px; line-height: 1.4; margin-top: 2px; }
       .om-form.survey .om-label { font-size: 24px; }
+      .om-form.survey .om-cat { color: #ffffff; font-size: 34px; font-weight: 900; letter-spacing: 0.6px; margin: 0; }
+      .om-form.survey .om-qtext { color: #cfd6e6; font-size: 16px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .om-form.survey .om-head { display: flex; align-items: baseline; gap: 10px; }
+      .om-form.survey .om-row { gap: 6px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+      .om-form.attrak .om-row { gap: 6px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
     `;
     document.head.appendChild(style);
   }
