@@ -189,6 +189,18 @@ export class GUIManager {
   setupPositionControls() {
     const posFolder = this.gui.addFolder("Position");
 
+    // User height controls (in cm)
+    try {
+      this.controllers.userHeightCm = posFolder
+        .add(this.params, "userHeightCm", 120, 210, 1)
+        .name("User Height (cm)")
+        .onChange(() => {
+          if (this.callbacks.onUserHeightChange) {
+            this.callbacks.onUserHeightChange();
+          }
+        });
+    } catch (_) {}
+
     posFolder
       .add(this.params, "positionStep", 0.01, 1.0, 0.01)
       .name("Step");

@@ -200,6 +200,15 @@ export class AppController {
         y: this.baseModelPosition.y + offsetY,
         z: this.baseModelPosition.z + offsetZ
       };
+      // Adapt Y to user height relative to preset baseline (default 175 cm)
+      try {
+        const baselineCm = isFinite(Number(this.params && this.params.baselinePresetHeightCm)) ? Number(this.params.baselinePresetHeightCm) : 175;
+        const userCm = Number(this.params && this.params.userHeightCm);
+        if (isFinite(userCm)) {
+          const deltaMeters = (userCm - baselineCm) / 100.0;
+          this.modelPosition.y = (this.modelPosition.y || 0) + deltaMeters;
+        }
+      } catch (_) {}
       const renderPreset = getModelRenderPreset(this.selectedFolder, fileName);
       if (renderPreset && typeof renderPreset === 'object') {
         if (isFinite(renderPreset.pointSize)) this.params.pointSize = renderPreset.pointSize;

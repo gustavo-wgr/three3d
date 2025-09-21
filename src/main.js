@@ -35,7 +35,7 @@ export class MainApplication {
     this.glbFiles = [];
     this.currentGlbIndex = 0;
     // 10s per model
-    this.autoSwitchDelayMs = 3000;
+    this.autoSwitchDelayMs = 1000;
     
     // Parameters for GUI
     this.params = {
@@ -85,6 +85,9 @@ export class MainApplication {
       },
       // Debug utility: log current rendering and position configuration
       logCurrentConfig: () => this.logCurrentConfig(),
+      // User height (cm) and baseline for presets
+      userHeightCm: 175,
+      baselinePresetHeightCm: 165,
     };
 
     // Bind handlers
@@ -314,12 +317,27 @@ export class MainApplication {
         const offsetX = this.params.presetOffsetX || 0;
         const offsetY = this.params.presetOffsetY || 0;
         const offsetZ = this.params.presetOffsetZ || 0;
-        const nx = this.baseModelPosition.x + offsetX;
-        const ny = this.baseModelPosition.y + offsetY;
-        const nz = this.baseModelPosition.z + offsetZ;
+        let nx = this.baseModelPosition.x + offsetX;
+        let ny = this.baseModelPosition.y + offsetY;
+        let nz = this.baseModelPosition.z + offsetZ;
+        // Apply height delta relative to baseline (affects Y only)
+        try {
+          const baselineCm = isFinite(Number(this.params.baselinePresetHeightCm)) ? Number(this.params.baselinePresetHeightCm) : 175;
+          const userCm = Number(this.params.userHeightCm);
+          if (isFinite(userCm)) {
+            ny += (userCm - baselineCm) / 100.0;
+          }
+        } catch (_) {}
         this.modelPosition = { x: nx, y: ny, z: nz };
         if (this.pointcloudManager) {
           this.pointcloudManager.updatePointCloudPosition(nx, ny, nz);
+        }
+      }
+      ,
+      onUserHeightChange: () => {
+        // Reuse the same recompute path as preset offset change
+        if (this.callbacks && typeof this.callbacks.onPresetOffsetChange === 'function') {
+          this.callbacks.onPresetOffsetChange();
         }
       }
       ,
